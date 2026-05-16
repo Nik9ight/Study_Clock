@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FOCUS</title>
+<style>
+  * { box-sizing: border-box; border-radius: 0; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #000000;
+    color: #ffffff;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: normal;
+    font-style: normal;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .viewfinder {
+    position: relative;
+    width: min(560px, 100%);
+    padding: 32px 36px;
+    border: 1px solid #ffffff;
+    background: #000000;
+  }
+
+  .viewfinder.hidden { display: none; }
+
+  .bracket {
+    position: absolute;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #ffffff;
+    user-select: none;
+  }
+  .bracket.tl { top: 6px; left: 10px; }
+  .bracket.tr { top: 6px; right: 10px; }
+  .bracket.bl { bottom: 6px; left: 10px; transform: rotate(180deg); }
+  .bracket.br { bottom: 6px; right: 10px; transform: rotate(180deg); }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .label {
+    font-size: 0.9rem;
+    letter-spacing: 0.15em;
+    color: #ffffff;
+  }
+
+  .icons {
+    display: flex;
+    gap: 14px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: normal;
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+  }
+  .icon-btn:hover { color: #e0e0e0; }
+  .icon-btn:focus { outline: 1px solid #e0e0e0; }
+
+  .timer {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    text-align: center;
+    margin: 14px 0 22px;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+  }
+  .timer.flash { visibility: hidden; }
+
+  .progress {
+    width: 100%;
+    height: 16px;
+    border: 1px solid #ffffff;
+    background: #000000;
+    overflow: visible;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background-image: repeating-conic-gradient(#ffffff 0% 25%, #000000 0% 50%);
+    background-size: 4px 4px;
+    background-position: 0 0;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 18px;
+  }
+
+  .remaining {
+    font-size: 0.85rem;
+    color: #e0e0e0;
+    letter-spacing: 0.1em;
+  }
+
+  .controls {
+    display: flex;
+    gap: 14px;
+  }
+
+  .settings {
+    display: none;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid #ffffff;
+  }
+  .settings.open { display: block; }
+
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 8px 0;
+    font-size: 0.85rem;
+    color: #e0e0e0;
+    letter-spacing: 0.1em;
+  }
+  .settings input[type="number"] {
+    background: #000000;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    width: 80px;
+    -moz-appearance: textfield;
+  }
+  .settings input::-webkit-outer-spin-button,
+  .settings input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .revive {
+    display: none;
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: #000000;
+    color: #ffffff;
+    border: 1px solid #ffffff;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+  }
+  .revive.show { display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="viewfinder" id="viewfinder">
+  <span class="bracket tl">&#x2310;</span>
+  <span class="bracket tr">&#xAC;</span>
+  <span class="bracket bl">&#xAC;</span>
+  <span class="bracket br">&#x2310;</span>
+
+  <div class="header">
+    <span class="label">FOCUS</span>
+    <div class="icons">
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings">&#x2699;</button>
+      <button class="icon-btn" id="closeBtn" aria-label="Close">&#xD7;</button>
+    </div>
+  </div>
+
+  <div class="timer" id="timer">25:00</div>
+
+  <div class="progress">
+    <div class="progress-fill" id="progressFill"></div>
+  </div>
+
+  <div class="footer">
+    <span class="remaining" id="remaining">REMAINING 02:05:00</span>
+    <div class="controls">
+      <button class="icon-btn" id="playBtn" aria-label="Play">&#x25B6;</button>
+      <button class="icon-btn" id="resetBtn" aria-label="Reset">&#x25A0;</button>
+    </div>
+  </div>
+
+  <div class="settings" id="settings">
+    <div class="settings-row">
+      <span>SESSION (MIN)</span>
+      <input type="number" id="sessionMin" min="5" max="60" value="25">
+    </div>
+    <div class="settings-row">
+      <span>DAILY SESSIONS</span>
+      <input type="number" id="dailySessions" min="1" max="20" value="5">
+    </div>
+  </div>
+</div>
+
+<button class="revive" id="reviveBtn">FOCUS</button>
+
+<script>
+  var STATE = { IDLE: 'idle', RUNNING: 'running', PAUSED: 'paused', COMPLETED: 'completed' };
+
+  var sessionMinutes = 25;
+  var dailySessions = 5;
+  var totalSeconds = sessionMinutes * 60;
+  var secondsLeft = totalSeconds;
+  var sessionsCompleted = 0;
+  var state = STATE.IDLE;
+  var intervalId = null;
+
+  var timerEl = document.getElementById('timer');
+  var remainingEl = document.getElementById('remaining');
+  var fillEl = document.getElementById('progressFill');
+  var playBtn = document.getElementById('playBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var settingsBtn = document.getElementById('settingsBtn');
+  var closeBtn = document.getElementById('closeBtn');
+  var settingsPanel = document.getElementById('settings');
+  var reviveBtn = document.getElementById('reviveBtn');
+  var viewfinder = document.getElementById('viewfinder');
+  var sessionMinInput = document.getElementById('sessionMin');
+  var dailySessionsInput = document.getElementById('dailySessions');
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function fmtMS(s) {
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return pad(m) + ':' + pad(sec);
+  }
+
+  function fmtHMS(s) {
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    return pad(h) + ':' + pad(m) + ':' + pad(sec);
+  }
+
+  function dailyRemainingSeconds() {
+    var dailyTotal = dailySessions * sessionMinutes * 60;
+    var elapsed;
+    if (state === STATE.COMPLETED) {
+      elapsed = sessionsCompleted * sessionMinutes * 60;
+    } else {
+      elapsed = sessionsCompleted * sessionMinutes * 60 + (totalSeconds - secondsLeft);
+    }
+    return Math.max(0, dailyTotal - elapsed);
+  }
+
+  function render() {
+    timerEl.textContent = fmtMS(secondsLeft);
+    remainingEl.textContent = 'REMAINING ' + fmtHMS(dailyRemainingSeconds());
+    var pct = totalSeconds === 0 ? 0 : ((totalSeconds - secondsLeft) / totalSeconds) * 100;
+    fillEl.style.width = pct + '%';
+    playBtn.innerHTML = state === STATE.RUNNING ? '&#x23F8;' : '&#x25B6;';
+  }
+
+  function tick() {
+    if (state !== STATE.RUNNING) return;
+    secondsLeft--;
+    if (secondsLeft <= 0) {
+      secondsLeft = 0;
+      clearInterval(intervalId);
+      intervalId = null;
+      state = STATE.COMPLETED;
+      sessionsCompleted++;
+      render();
+      flashThenReset();
+      return;
+    }
+    render();
+  }
+
+  function flashThenReset() {
+    var count = 0;
+    var flashId = setInterval(function () {
+      timerEl.classList.toggle('flash');
+      count++;
+      if (count >= 6) {
+        clearInterval(flashId);
+        timerEl.classList.remove('flash');
+        reset();
+      }
+    }, 250);
+  }
+
+  function start() {
+    if (state === STATE.RUNNING) return;
+    state = STATE.RUNNING;
+    if (intervalId) clearInterval(intervalId);
+    intervalId = setInterval(tick, 1000);
+    render();
+  }
+
+  function pause() {
+    if (state !== STATE.RUNNING) return;
+    state = STATE.PAUSED;
+    clearInterval(intervalId);
+    intervalId = null;
+    render();
+  }
+
+  function reset() {
+    state = STATE.IDLE;
+    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    totalSeconds = sessionMinutes * 60;
+    secondsLeft = totalSeconds;
+    render();
+  }
+
+  playBtn.addEventListener('click', function () {
+    if (state === STATE.RUNNING) pause(); else start();
+  });
+
+  resetBtn.addEventListener('click', reset);
+
+  settingsBtn.addEventListener('click', function () {
+    settingsPanel.classList.toggle('open');
+  });
+
+  closeBtn.addEventListener('click', function () {
+    if (state === STATE.RUNNING) pause();
+    viewfinder.classList.add('hidden');
+    reviveBtn.classList.add('show');
+  });
+
+  reviveBtn.addEventListener('click', function () {
+    viewfinder.classList.remove('hidden');
+    reviveBtn.classList.remove('show');
+  });
+
+  sessionMinInput.addEventListener('change', function () {
+    var v = parseInt(sessionMinInput.value, 10);
+    if (isNaN(v)) v = 25;
+    v = Math.min(60, Math.max(5, v));
+    sessionMinInput.value = v;
+    sessionMinutes = v;
+    if (state === STATE.IDLE) {
+      totalSeconds = sessionMinutes * 60;
+      secondsLeft = totalSeconds;
+    }
+    render();
+  });
+
+  dailySessionsInput.addEventListener('change', function () {
+    var v = parseInt(dailySessionsInput.value, 10);
+    if (isNaN(v)) v = 5;
+    v = Math.min(20, Math.max(1, v));
+    dailySessionsInput.value = v;
+    dailySessions = v;
+    render();
+  });
+
+  render();
+</script>
+
+</body>
+</html>
