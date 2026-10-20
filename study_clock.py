@@ -1,32 +1,38 @@
 import ctypes
+import json
 import os
 import tkinter as tk
+from tkinter import font as tkfont
+from datetime import datetime
+from pathlib import Path
 
 CHIME_FILE = "freesound_community-timer-with-chime-101253.mp3"
 CHIME_LEAD_SECS = 10
 
-W = 320
-H_BASE = 156
-H_SETTINGS = 78
-H_COMPACT = 24
-PAD_X = 16
-BRACKET_ARM = 12
-BRACKET_INSET = 6
+W = 440
+H_BASE = 424
+H_COMPACT = 44
+PAD_X = 28
 
-BAR_Y0_NORMAL  = 96
-BAR_Y1_NORMAL  = 112
-BAR_Y0_COMPACT = 4
+BAR_Y0_NORMAL  = 244
+BAR_Y1_NORMAL  = 260
+BAR_Y0_COMPACT = 6
 BAR_Y1_COMPACT = 20
+PROGRESS_STYLES = ("Installer", "ASCII", "Segments")
 
-BG  = "#000000"
-FG  = "#ffffff"
-DIM = "#e0e0e0"
+THEMES = {
+    "Midnight": {"bg": "#141820", "fg": "#f2f4f8", "dim": "#a4adbd",
+                 "accent": "#b5c6ff", "surface": "#242c3b", "border": "#394459"},
+    "Paper": {"bg": "#faf7f0", "fg": "#292b32", "dim": "#64646c",
+              "accent": "#5554a5", "surface": "#eae5db", "border": "#c9c3b8"},
+    "Forest": {"bg": "#12231e", "fg": "#edf5ee", "dim": "#a0b9ab",
+               "accent": "#a6dbb5", "surface": "#233c31", "border": "#3e5d4d"},
+}
+PREFERENCES_FILE = Path(os.environ.get("APPDATA", str(Path.home()))) / "StudyClock" / "preferences.json"
 
-FONT_LABEL   = ("Courier New", 9)
-FONT_TIMER   = ("Courier New", 26)
-FONT_SMALL   = ("Courier New", 8)
-FONT_ICON    = ("Courier New", 11)
-FONT_ICON_LG = ("Courier New", 13)
+FONT_LABEL   = ("Segoe UI", -11, "bold")
+FONT_TIMER   = ("Consolas", -64)
+FONT_SMALL   = ("Segoe UI", -13)
 
 
 def fmt_ms(s):
@@ -44,7 +50,14 @@ class StudyClock(tk.Tk):
         super().__init__()
         self.overrideredirect(True)
         self.attributes("-topmost", True)
-        self.configure(bg=FG)
+        self.theme_name = "Midnight"
+        self.use_24_hour = True
+        self.progress_style = "Installer"
+        self._load_preferences()
+        self.colors = THEMES[self.theme_name]
+        self.configure(bg=self.colors["border"])
+        self.view_mode = "timer"
+        self.clock_id = None
 
         # Settings
         self.study_hours = 1    # 1, 2, or 3
@@ -75,6 +88,7 @@ class StudyClock(tk.Tk):
         self._cx = self._cy = 0
         self._px = self._py = 0
         self._moved = False
+        self._mono_fonts = {}
 
         self.update_idletasks()
         sw   = self.winfo_screenwidth()
@@ -82,16 +96,89 @@ class StudyClock(tk.Tk):
         self.geometry(f"{W}x{H_BASE}+{sw - W - 20}+{sh_p - H_BASE - 60}")
 
         self.cv = tk.Canvas(self, width=W - 2, height=H_BASE - 2,
-                            bg=BG, highlightthickness=0, bd=0)
+                            bg=self.colors["bg"], highlightthickness=0, bd=0)
         self.cv.pack(padx=1, pady=1)
         self.cv.bind("<ButtonPress-1>",   self._on_press)
         self.cv.bind("<B1-Motion>",       self._on_drag)
         self.cv.bind("<ButtonRelease-1>", self._on_release)
         self.cv.bind("<ButtonRelease-3>", self._on_right_release)
-        self.bind("<Escape>", lambda _e: self._quit())
+        self.cv.bind("<Motion>", self._on_hover)
+        self.bind("<Escape>", self._on_escape)
+        self.bind("<space>", self._on_space)
 
         self._build()
         self._render()
+        self._clock_tick()
+
+    def _load_preferences(self):
+        try:
+            prefs = json.loads(PREFERENCES_FILE.read_text(encoding="utf-8"))
+            if isinstance(prefs, dict):
+                if prefs.get("theme") in THEMES:
+                    self.theme_name = prefs["theme"]
+                self.use_24_hour = prefs.get("use_24_hour", True) is not False
+                if prefs.get("progress_style") in PROGRESS_STYLES:
+                    self.progress_style = prefs["progress_style"]
+        except (OSError, ValueError, TypeError):
+            pass
+
+    def _save_preferences(self):
+        try:
+            PREFERENCES_FILE.parent.mkdir(parents=True, exist_ok=True)
+            PREFERENCES_FILE.write_text(json.dumps({
+                "theme": self.theme_name, "use_24_hour": self.use_24_hour,
+                "progress_style": self.progress_style,
+            }), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _clock_tick(self):
+        self._render()
+        self.clock_id = self.after(1000, self._clock_tick)
+
+    def _on_space(self, _event):
+        if self.settings_open or isinstance(self.focus_get(), tk.Entry):
+            return
+        self._toggle_play()
+        return "break"
+
+    def _on_escape(self, _event=None):
+        if self.settings_open:
+            self._close_settings()
+        else:
+            self._quit()
+        return "break"
+
+    def _on_hover(self, event):
+        self.cv.configure(cursor="hand2" if self._hit_button(event.x, event.y) else "")
+
+    def _set_view(self, mode):
+        self.view_mode = mode
+        self._render()
+
+    def _set_progress_style(self, style):
+        if style not in PROGRESS_STYLES:
+            return
+        self.progress_style = style
+        self._render()
+        self._save_preferences()
+
+    def _set_theme(self, name):
+        reopen_settings = self.settings_open
+        if reopen_settings:
+            self._close_settings()
+        self.theme_name = name
+        self.colors = THEMES[name]
+        self.configure(bg=self.colors["border"])
+        self.cv.configure(bg=self.colors["bg"])
+        self.cv.delete("all")
+        self._build()
+        if self.compact_open:
+            self.cv.itemconfig("main_ui", state="hidden")
+        if reopen_settings:
+            self._open_settings()
+        self._render()
+        self._save_preferences()
 
     # ── Derived durations ────────────────────────────────────────────────────
 
@@ -105,122 +192,156 @@ class StudyClock(tk.Tk):
 
     def _build(self):
         cv = self.cv
-        self._draw_brackets()
+        c = self.colors
+        cv.create_text(PAD_X, 30, text="Focus",
+                       font=("Segoe UI", -17, "bold"), fill=c["fg"], anchor="w", tags="main_ui")
+        self._button("btn_hide", 272, 12, 64, 36, "Hide", quiet=True)
+        self._button("btn_min", 340, 12, 32, 36, "▱", quiet=True)
+        self._button("btn_cls", 380, 12, 32, 36, "×", quiet=True)
+        self._rounded_rect(112, 60, 328, 104, 12, fill=c["surface"], tags="main_ui")
+        self._timer_tab = self._button("btn_timer", 116, 64, 104, 36, "Timer")
+        self._clock_tab = self._button("btn_clock", 224, 64, 100, 36, "Clock")
+        self._id_phase = cv.create_text(W // 2, 130, font=FONT_LABEL,
+                                        fill=c["accent"], tags="main_ui")
+        self._id_timer = cv.create_text(W // 2, 178, font=FONT_TIMER,
+                                        fill=c["fg"], tags="main_ui")
+        self._id_detail = cv.create_text(W // 2, 222, font=FONT_SMALL,
+                                         fill=c["dim"], tags="main_ui")
+        self._id_play = self._button("btn_play", 128, 308, 100, 44, "Start", primary=True)
+        self._button("btn_reset", 236, 308, 76, 44, "Reset", quiet=True)
+        self._id_settings = self._button("btn_cfg", 160, 374, 120, 32, "Customize", quiet=True)
 
-        # Header: dynamic phase label left, ⚙ _ × right
-        self._id_phase = cv.create_text(PAD_X, 18, text="STANDBY",
-                                        font=FONT_LABEL, fill=FG, anchor="w",
-                                        tags="main_ui")
-        cv.create_text(W - PAD_X - 40, 18, text="⚙",
-                       font=FONT_ICON, fill=FG, activefill=DIM,
-                       anchor="center", tags=("main_ui", "btn_cfg"))
-        self._draw_settings_icon(W - PAD_X - 40, 18)
-        cv.create_text(W - PAD_X - 22, 22, text="_",
-                       font=FONT_ICON, fill=FG, activefill=DIM,
-                       anchor="center", tags=("main_ui", "btn_min"))
-        cv.create_text(W - PAD_X - 4, 18, text="×",
-                       font=FONT_ICON_LG, fill=FG, activefill=DIM,
-                       anchor="center", tags=("main_ui", "btn_cls"))
+    def _rounded_rect(self, x0, y0, x1, y1, radius, **options):
+        points = (x0 + radius, y0, x1 - radius, y0, x1, y0, x1, y0 + radius,
+                  x1, y1 - radius, x1, y1, x1 - radius, y1, x0 + radius, y1,
+                  x0, y1, x0, y1 - radius, x0, y0 + radius, x0, y0)
+        return self.cv.create_polygon(points, smooth=True, splinesteps=24, outline="", **options)
 
-        # Timer (current phase MM:SS)
-        self._id_timer = cv.create_text(W // 2, 64, text="55:00",
-                                        font=FONT_TIMER, fill=FG,
-                                        anchor="center", tags="main_ui")
+    def _button(self, tag, x, y, width, height, text, primary=False, quiet=False, group="main_ui"):
+        c = self.colors
+        tags = (group, tag)
+        self._rounded_rect(x, y, x + width, y + height, 10,
+                           fill=c["accent"] if primary else c["bg"] if quiet else c["surface"], tags=tags)
+        return self.cv.create_text(
+            x + width / 2, y + height / 2, text=text,
+            font=("Segoe UI", -14, "bold") if primary else FONT_SMALL,
+            fill=c["bg"] if primary else c["dim"] if quiet else c["fg"], tags=tags)
 
-        # Progress bar (current phase)
-        self._bar_y0 = BAR_Y0_NORMAL
-        self._bar_y1 = BAR_Y1_NORMAL
-        self._bar_x0 = PAD_X
-        self._bar_x1 = W - PAD_X
-        self._id_bar_outline = cv.create_rectangle(
-            self._bar_x0, self._bar_y0,
-            self._bar_x1, self._bar_y1,
-            outline=FG, width=1, fill="", tags="bar")
-        self._id_bar_fill = cv.create_rectangle(
-            self._bar_x0 + 1, self._bar_y0 + 1,
-            self._bar_x0 + 1, self._bar_y1 - 1,
-            fill=FG, outline="", stipple="gray50", tags="bar")
-
-        # Footer
-        self._id_remaining = cv.create_text(
-            PAD_X, 132, text="REMAINING 01:00:00",
-            font=FONT_SMALL, fill=DIM, anchor="w", tags="main_ui")
-        self._id_play = cv.create_text(
-            W - PAD_X - 22, 132, text="▶", font=FONT_ICON,
-            fill=FG, activefill=DIM, anchor="center",
-            tags=("main_ui", "btn_play"))
-        cv.create_text(
-            W - PAD_X - 4, 132, text="■", font=FONT_ICON,
-            fill=FG, activefill=DIM, anchor="center",
-            tags=("main_ui", "btn_reset"))
-
-    def _draw_brackets(self):
-        cv = self.cv
-        cv.delete("bracket")
-        h = self._h_current - 2
-        p, arm = BRACKET_INSET, BRACKET_ARM
-        for x, y, dx, dy in [(p, p, 1, 1), (W - p - 2, p, -1, 1),
-                              (p, h - p, 1, -1), (W - p - 2, h - p, -1, -1)]:
-            cv.create_line(x, y, x + dx * arm, y, fill=FG, width=1, tags="bracket")
-            cv.create_line(x, y, x, y + dy * arm, fill=FG, width=1, tags="bracket")
-
-    def _draw_settings_icon(self, x, y):
-        cv = self.cv
-        tags = ("main_ui", "btn_cfg")
-
-        # Invisible hit target keeps the hand-drawn icon easy to click.
-        cv.create_rectangle(x - 8, y - 8, x + 8, y + 8,
-                            fill=BG, outline="", tags=tags)
-
-        cv.create_oval(x - 4, y - 4, x + 4, y + 4,
-                       outline=FG, width=1, tags=tags)
-        cv.create_oval(x - 1, y - 1, x + 1, y + 1,
-                       outline=FG, width=1, tags=tags)
-        cv.create_line(x, y - 7, x, y - 5, fill=FG, width=1, tags=tags)
-        cv.create_line(x, y + 5, x, y + 7, fill=FG, width=1, tags=tags)
-        cv.create_line(x - 7, y, x - 5, y, fill=FG, width=1, tags=tags)
-        cv.create_line(x + 5, y, x + 7, y, fill=FG, width=1, tags=tags)
-        cv.create_line(x - 5, y - 5, x - 4, y - 4, fill=FG, width=1, tags=tags)
-        cv.create_line(x + 4, y - 4, x + 5, y - 5, fill=FG, width=1, tags=tags)
-        cv.create_line(x - 5, y + 5, x - 4, y + 4, fill=FG, width=1, tags=tags)
-        cv.create_line(x + 4, y + 4, x + 5, y + 5, fill=FG, width=1, tags=tags)
+    def _show_choice_menu(self, tag, choices, selected, callback):
+        c = self.colors
+        previous = getattr(self, "_choice_menu", None)
+        if previous:
+            previous.destroy()
+        menu = tk.Menu(self, tearoff=False, bg=c["surface"], fg=c["fg"],
+                       activebackground=c["accent"], activeforeground=c["bg"],
+                       font=FONT_SMALL, bd=0)
+        self._choice_menu = menu
+        labels = {"Installer": "Package installer", "ASCII": "ASCII terminal", "Segments": "Retro segments"}
+        for choice in choices:
+            menu.add_command(label=("✓  " if choice == selected else "    ") + labels.get(choice, choice),
+                             command=lambda value=choice: callback(value))
+        bbox = self.cv.bbox(tag)
+        try:
+            menu.tk_popup(self.winfo_rootx() + bbox[0], self.winfo_rooty() + bbox[3])
+        finally:
+            menu.grab_release()
 
     # ── Render ───────────────────────────────────────────────────────────────
 
     def _render(self):
         cv = self.cv
 
-        # Phase label
-        label = {"idle": "STANDBY", "completed": "DONE"}.get(
+        label = {"idle": "READY TO FOCUS", "completed": "SESSION COMPLETE",
+                 "paused": "PAUSED"}.get(
             self.state,
-            "FOCUS" if self.current_phase == "focus" else "BREAK")
-        cv.itemconfig(self._id_phase, text=label)
+            "FOCUS TIME" if self.current_phase == "focus" else "TAKE A BREAK")
+        now = datetime.now()
+        clock_mode = self.view_mode == "clock"
+        clock_text = now.strftime("%H:%M:%S" if self.use_24_hour else "%I:%M:%S")
+        cv.itemconfig(self._id_phase, text="LOCAL TIME" if clock_mode else label)
+        cv.itemconfig(self._id_timer, text=clock_text if clock_mode else fmt_ms(self.time_left),
+                      font=("Consolas", -52 if clock_mode else -64))
+        detail = (now.strftime("%A, %d %B") + ("" if self.use_24_hour else now.strftime(" · %p"))
+                  if clock_mode else f"{self.study_hours}h session  ·  {self.break_mins}m breaks")
+        cv.itemconfig(self._id_detail, text=detail)
+        for tag, tab, active in (("btn_timer", self._timer_tab, not clock_mode),
+                                ("btn_clock", self._clock_tab, clock_mode)):
+            cv.itemconfig(tab, fill=self.colors["accent"] if active else self.colors["dim"])
+            cv.itemconfig(cv.find_withtag(tag)[0],
+                          fill=self.colors["bg"] if active else self.colors["surface"])
 
-        # Timer shows current phase countdown
-        cv.itemconfig(self._id_timer, text=fmt_ms(self.time_left))
+        self._render_progress()
 
-        # REMAINING: total session time left (or full session when idle)
-        if self.state == "idle":
-            remaining = self.study_hours * 3600
-        elif self.state == "completed":
-            remaining = 0
-        else:
-            remaining = self.total_left
-        cv.itemconfig(self._id_remaining,
-                      text=f"REMAINING {fmt_hms(remaining)}")
-
-        # Progress bar: fraction of current phase elapsed
-        pct = ((self.phase_total - self.time_left) / self.phase_total
-               if self.phase_total > 0 else 0)
-        bar_w = self._bar_x1 - self._bar_x0 - 2
-        fill_x = self._bar_x0 + 1 + bar_w * pct
-        cv.coords(self._id_bar_fill,
-                  self._bar_x0 + 1, self._bar_y0 + 1,
-                  fill_x, self._bar_y1 - 1)
-
-        # Dim ▶ while running
         cv.itemconfig(self._id_play,
-                      fill=DIM if self.state == "running" else FG)
+                      text={"running": "Pause", "paused": "Resume",
+                            "completed": "Done"}.get(self.state, "Start"))
+        if self.settings_open:
+            cv.itemconfig(self._theme_btn, text=self.theme_name + "  ▾")
+            style_label = {"Installer": "Package installer", "ASCII": "ASCII terminal", "Segments": "Retro segments"}
+            cv.itemconfig(self._style_btn, text=style_label[self.progress_style] + "  ▾")
+            cv.itemconfig(self._format_btn, text="24 hour" if self.use_24_hour else "12 hour")
+            editable = self.state in ("idle", "completed")
+            for entry in (self._sh_entry, self._bm_entry):
+                entry.configure(state="normal" if editable else "disabled")
+            cv.itemconfig("settings_hint", text="Hours: 1–3 · Break: 5, 10 or 15 minutes"
+                          if editable else "Reset the timer to change your plan.")
+
+    def _render_progress(self):
+        cv, c = self.cv, self.colors
+        cv.delete("bar")
+        if self.settings_open:
+            return
+        fraction = max(0, min(1, (self.phase_total - self.time_left) / self.phase_total
+                             if self.phase_total else 0))
+        # Never show 100% before the phase has actually finished.
+        percent = int(fraction * 100)
+        y0 = BAR_Y0_COMPACT if self.compact_open else BAR_Y0_NORMAL
+        y1 = BAR_Y1_COMPACT if self.compact_open else BAR_Y1_NORMAL
+        x0, x1 = PAD_X, W - PAD_X
+        font = ("Consolas", -12)
+        status = {"idle": "READY", "paused": "PAUSED", "completed": "DONE"}.get(
+            self.state, "BREAK" if self.current_phase == "break" else "STUDYING")
+        cv.create_text(x1, 32 if self.compact_open else 282,
+                       text=f"{percent}%", font=font, fill=c["accent"], anchor="e", tags=("bar", "bar_percent"))
+        remaining = self.study_hours * 3600 if self.state == "idle" else max(0, self.total_left)
+        meta = (f"{status}  {fmt_ms(self.time_left)} left" if self.compact_open
+                else f"Session left {fmt_hms(remaining)}")
+        cv.create_text(x0, 32 if self.compact_open else 282, text=meta,
+                       font=font, fill=c["dim"], anchor="w", tags=("bar", "bar_status"))
+        if self.progress_style == "Installer":
+            count = 28
+            filled = int(fraction * count)
+            text = "[" + "█" * filled + "░" * (count - filled) + "]"
+            cv.create_text(W // 2, (y0 + y1) / 2, text=text,
+                           font=self._bar_font(text), fill=c["accent"], tags=("bar", "bar_installer"))
+            return
+        if self.progress_style == "ASCII":
+            count = 30
+            filled = int(fraction * count)
+            contents = "=" * filled
+            if filled < count:
+                contents += ">" + "-" * (count - filled - 1)
+            cv.create_text(W // 2, (y0 + y1) / 2, text=f"[{contents}]",
+                           font=self._bar_font(f"[{contents}]"), fill=c["accent"], tags=("bar", "bar_ascii"))
+            return
+        count, gap = 20, 4
+        width = (x1 - x0 - gap * (count - 1)) / count
+        filled = int(fraction * count)
+        for index in range(count):
+            left = x0 + index * (width + gap)
+            cv.create_rectangle(left, y0, left + width, y1,
+                                 fill=c["accent"] if index < filled else c["surface"],
+                                 outline=c["border"],
+                                 tags=("bar", "bar_filled" if index < filled else "bar_empty"))
+
+    def _bar_font(self, text):
+        key = (len(text), self.compact_open)
+        if key not in self._mono_fonts:
+            font = tkfont.Font(self, family="Consolas", size=-16 if self.compact_open else -22)
+            while font.measure(text) > W - 2 * PAD_X - 4:
+                font.configure(size=font.cget("size") + 1)
+            self._mono_fonts[key] = font
+        return self._mono_fonts[key]
 
     # ── Input ────────────────────────────────────────────────────────────────
 
@@ -245,33 +366,41 @@ class StudyClock(tk.Tk):
             self._exit_compact()
             return
         tag = self._hit_button(self._cx, self._cy)
-        # if   tag == "btn_cls":   self._minimize()
         if   tag == "btn_cls":   self._quit()
+        elif tag == "btn_hide":  self._minimize()
         elif tag == "btn_cfg":   self._toggle_settings()
+        elif tag == "btn_done":  self._close_settings()
         elif tag == "btn_min":   self._enter_compact()
         elif tag == "btn_play":  self._toggle_play()
         elif tag == "btn_reset": self._reset()
+        elif tag == "btn_timer": self._set_view("timer")
+        elif tag == "btn_clock": self._set_view("clock")
+        elif tag == "btn_format":
+            self.use_24_hour = not self.use_24_hour
+            self._save_preferences()
+            self._render()
+        elif tag == "btn_theme":
+            self._show_choice_menu(tag, THEMES, self.theme_name, self._set_theme)
+        elif tag == "btn_style":
+            self._show_choice_menu(tag, PROGRESS_STYLES, self.progress_style, self._set_progress_style)
 
     def _on_right_release(self, e):
         if self._hit_button(e.x, e.y) == "btn_cls":
             self._quit()
 
     def _hit_button(self, x, y):
-        items = self.cv.find_closest(x, y)
-        if not items:
-            return None
-        bbox = self.cv.bbox(items[0])
-        if not bbox:
-            return None
-        bx0, by0, bx1, by1 = bbox
-        if not (bx0 - 4 <= x <= bx1 + 4 and by0 - 4 <= y <= by1 + 4):
-            return None
-        for tag in self.cv.gettags(items[0]):
-            if tag.startswith("btn_"):
-                return tag
+        for item in reversed(self.cv.find_overlapping(x, y, x, y)):
+            if self.cv.itemcget(item, "state") == "hidden":
+                continue
+            for tag in self.cv.gettags(item):
+                if tag.startswith("btn_"):
+                    return tag
         return None
 
     def _quit(self):
+        if self.clock_id:
+            self.after_cancel(self.clock_id)
+            self.clock_id = None
         if self.timer_id:
             self.after_cancel(self.timer_id)
             self.timer_id = None
@@ -350,7 +479,7 @@ class StudyClock(tk.Tk):
             self.after_cancel(self.flash_id)
             self.flash_id = None
         self._stop_chime()
-        self.cv.itemconfig(self._id_timer, fill=FG)
+        self.cv.itemconfig(self._id_timer, fill=self.colors["fg"])
         self.current_phase = "focus"
         self.phase_total   = self._focus_secs()
         self.time_left     = self.phase_total
@@ -367,6 +496,7 @@ class StudyClock(tk.Tk):
             self._play_chime()
 
         if self.total_left <= 0:
+            self.view_mode = "timer"
             self.time_left  = 0
             self.total_left = 0
             self.state      = "completed"
@@ -401,10 +531,10 @@ class StudyClock(tk.Tk):
 
     def _flash_step(self):
         on = self.flash_count % 2 == 0
-        self.cv.itemconfig(self._id_timer, fill=BG if on else FG)
+        self.cv.itemconfig(self._id_timer, fill=self.colors["bg"] if on else self.colors["fg"])
         self.flash_count += 1
         if self.flash_count >= 6:
-            self.cv.itemconfig(self._id_timer, fill=FG)
+            self.cv.itemconfig(self._id_timer, fill=self.colors["fg"])
             self.flash_id = None
             self._reset()
             return
@@ -422,12 +552,6 @@ class StudyClock(tk.Tk):
         self.geometry(f"{W}x{H_COMPACT}+{self.winfo_x()}+{self.winfo_y()}")
         self.cv.configure(height=H_COMPACT - 2)
         self.cv.itemconfig("main_ui", state="hidden")
-        self._bar_y0 = BAR_Y0_COMPACT
-        self._bar_y1 = BAR_Y1_COMPACT
-        self.cv.coords(self._id_bar_outline,
-                       self._bar_x0, self._bar_y0,
-                       self._bar_x1, self._bar_y1)
-        self._draw_brackets()
         self._render()
 
     def _exit_compact(self):
@@ -438,45 +562,53 @@ class StudyClock(tk.Tk):
         self.geometry(f"{W}x{H_BASE}+{self.winfo_x()}+{self.winfo_y()}")
         self.cv.configure(height=H_BASE - 2)
         self.cv.itemconfig("main_ui", state="normal")
-        self._bar_y0 = BAR_Y0_NORMAL
-        self._bar_y1 = BAR_Y1_NORMAL
-        self.cv.coords(self._id_bar_outline,
-                       self._bar_x0, self._bar_y0,
-                       self._bar_x1, self._bar_y1)
-        self._draw_brackets()
         self._render()
 
-    # ── Inline settings panel ────────────────────────────────────────────────
+    # ── Customization panel ──────────────────────────────────────────────────
 
     def _toggle_settings(self):
         if self.settings_open:
             self._close_settings()
-        elif self.state in ("idle", "completed"):
+        else:
             self._open_settings()
 
     def _open_settings(self):
+        if self.settings_open:
+            return
+        if self.compact_open:
+            self._exit_compact()
         self.settings_open = True
-        self._h_current = H_BASE + H_SETTINGS
-        self.geometry(f"{W}x{self._h_current}"
-                      f"+{self.winfo_x()}+{self.winfo_y()}")
-        self.cv.configure(height=self._h_current - 2)
-        self._draw_brackets()
-
         cv  = self.cv
-        sy0 = H_BASE - 4
-        sy1 = sy0 + H_SETTINGS - 8
-        cv.create_rectangle(PAD_X, sy0, W - PAD_X, sy1,
-                            outline=FG, width=1, fill="", tags="settings")
-
-        cv.create_text(PAD_X + 8, sy0 + 18, text="SESSION (H)",
-                       font=FONT_SMALL, fill=DIM, anchor="w", tags="settings")
-        cv.create_text(PAD_X + 8, sy0 + 46, text="BREAK (MIN)",
-                       font=FONT_SMALL, fill=DIM, anchor="w", tags="settings")
+        cv.itemconfig("main_ui", state="hidden")
+        cv.delete("bar")
+        cv.create_text(PAD_X, 32, text="Customize", font=("Segoe UI", -18, "bold"),
+                       fill=self.colors["fg"], anchor="w", tags="settings")
+        self._button("btn_done", W - PAD_X - 72, 14, 72, 36, "Done",
+                     quiet=True, group="settings")
+        cv.create_text(PAD_X, 72, text="APPEARANCE", font=FONT_LABEL,
+                       fill=self.colors["dim"], anchor="w", tags="settings")
+        for y, text in ((106, "Theme"), (158, "Progress bar"), (210, "Clock format")):
+            cv.create_text(PAD_X, y, text=text, font=FONT_SMALL,
+                           fill=self.colors["dim"], anchor="w", tags="settings")
+        self._theme_btn = self._button("btn_theme", 212, 86, 200, 40, "", group="settings")
+        self._style_btn = self._button("btn_style", 212, 138, 200, 40, "", group="settings")
+        self._format_btn = self._button("btn_format", 212, 190, 200, 40, "", group="settings")
+        cv.create_line(PAD_X, 248, W - PAD_X, 248, fill=self.colors["border"], tags="settings")
+        cv.create_text(PAD_X, 272, text="SESSION", font=FONT_LABEL,
+                       fill=self.colors["dim"], anchor="w", tags="settings")
+        cv.create_text(PAD_X, 306, text="Study hours",
+                       font=FONT_SMALL, fill=self.colors["dim"], anchor="w", tags="settings")
+        cv.create_text(PAD_X, 346, text="Break minutes",
+                       font=FONT_SMALL, fill=self.colors["dim"], anchor="w", tags="settings")
+        cv.create_text(PAD_X, 392, font=("Segoe UI", -12), fill=self.colors["dim"],
+                       anchor="w", tags=("settings", "settings_hint"))
 
         self._sh_var = tk.StringVar(value=str(self.study_hours))
         self._bm_var = tk.StringVar(value=str(self.break_mins))
 
-        ekw = dict(bg=BG, fg=FG, insertbackground=FG, relief="solid", bd=1,
+        ekw = dict(bg=self.colors["surface"], fg=self.colors["fg"],
+                   disabledbackground=self.colors["surface"], disabledforeground=self.colors["dim"],
+                   insertbackground=self.colors["fg"], relief="solid", bd=1,
                    highlightthickness=0, font=FONT_SMALL, justify="center",
                    width=5)
         self._sh_entry = tk.Entry(self, textvariable=self._sh_var, **ekw)
@@ -485,10 +617,10 @@ class StudyClock(tk.Tk):
             entry.bind("<FocusOut>", self._apply_settings)
             entry.bind("<Return>",   self._apply_settings)
 
-        cv.create_window(W - PAD_X - 12, sy0 + 18, anchor="e",
-                         window=self._sh_entry, tags="settings")
-        cv.create_window(W - PAD_X - 12, sy0 + 46, anchor="e",
-                         window=self._bm_entry, tags="settings")
+        cv.create_window(W - PAD_X, 306, anchor="e",
+                         window=self._sh_entry, height=30, width=80, tags="settings")
+        cv.create_window(W - PAD_X, 346, anchor="e",
+                         window=self._bm_entry, height=30, width=80, tags="settings")
         self._render()
 
     def _close_settings(self):
@@ -503,13 +635,12 @@ class StudyClock(tk.Tk):
         self._sh_var = None
         self._bm_var = None
         self.cv.delete("settings")
-        self._h_current = H_BASE
-        self.geometry(f"{W}x{H_BASE}+{self.winfo_x()}+{self.winfo_y()}")
-        self.cv.configure(height=H_BASE - 2)
-        self._draw_brackets()
+        self.cv.itemconfig("main_ui", state="normal")
         self._render()
 
     def _commit_settings(self):
+        if self.state not in ("idle", "completed"):
+            return
         sh_var, bm_var = self._sh_var, self._bm_var
         if sh_var is None or bm_var is None:
             return
@@ -557,12 +688,12 @@ class StudyClock(tk.Tk):
         rv = tk.Toplevel(self)
         rv.overrideredirect(True)
         rv.attributes("-topmost", True)
-        rv.configure(bg=FG)
+        rv.configure(bg=self.colors["border"])
         rv.geometry(f"{rw}x{rh}+{x + W - rw}+{y}")
-        inner = tk.Frame(rv, bg=BG)
+        inner = tk.Frame(rv, bg=self.colors["bg"])
         inner.pack(padx=1, pady=1, fill="both", expand=True)
         lbl = tk.Label(inner, text="FOCUS", font=FONT_SMALL,
-                       bg=BG, fg=FG, cursor="hand2")
+                       bg=self.colors["bg"], fg=self.colors["fg"], cursor="hand2")
         lbl.pack(expand=True, fill="both")
         lbl.bind("<Button-1>", lambda _e: self._revive_main())
         lbl.bind("<Button-3>", lambda _e: self._quit())

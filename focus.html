@@ -1,376 +1,305 @@
-<!DOCTYPE html>
-<html lang="en">
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="Midnight">
 <head>
 <meta charset="UTF-8">
-<title>FOCUS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Focus — Study clock</title>
 <style>
-  * { box-sizing: border-box; border-radius: 0; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: #000000;
-    color: #ffffff;
-    font-family: 'Courier New', Courier, monospace;
-    font-weight: normal;
-    font-style: normal;
-  }
-
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .viewfinder {
-    position: relative;
-    width: min(560px, 100%);
-    padding: 32px 36px;
-    border: 1px solid #ffffff;
-    background: #000000;
-  }
-
-  .viewfinder.hidden { display: none; }
-
-  .bracket {
-    position: absolute;
-    font-size: 1.6rem;
-    line-height: 1;
-    color: #ffffff;
-    user-select: none;
-  }
-  .bracket.tl { top: 6px; left: 10px; }
-  .bracket.tr { top: 6px; right: 10px; }
-  .bracket.bl { bottom: 6px; left: 10px; transform: rotate(180deg); }
-  .bracket.br { bottom: 6px; right: 10px; transform: rotate(180deg); }
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  .label {
-    font-size: 0.9rem;
-    letter-spacing: 0.15em;
-    color: #ffffff;
-  }
-
-  .icons {
-    display: flex;
-    gap: 14px;
-  }
-
-  .icon-btn {
-    background: none;
-    border: none;
-    color: #ffffff;
-    font-family: inherit;
-    font-size: 1rem;
-    font-weight: normal;
-    cursor: pointer;
-    padding: 2px 6px;
-    line-height: 1;
-  }
-  .icon-btn:hover { color: #e0e0e0; }
-  .icon-btn:focus { outline: 1px solid #e0e0e0; }
-
-  .timer {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    text-align: center;
-    margin: 14px 0 22px;
-    letter-spacing: 0.05em;
-    color: #ffffff;
-  }
-  .timer.flash { visibility: hidden; }
-
-  .progress {
-    width: 100%;
-    height: 16px;
-    border: 1px solid #ffffff;
-    background: #000000;
-    overflow: visible;
-    position: relative;
-  }
-  .progress-fill {
-    height: 100%;
-    width: 0%;
-    background-image: repeating-conic-gradient(#ffffff 0% 25%, #000000 0% 50%);
-    background-size: 4px 4px;
-    background-position: 0 0;
-  }
-
-  .footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 18px;
-  }
-
-  .remaining {
-    font-size: 0.85rem;
-    color: #e0e0e0;
-    letter-spacing: 0.1em;
-  }
-
-  .controls {
-    display: flex;
-    gap: 14px;
-  }
-
-  .settings {
-    display: none;
-    margin-top: 18px;
-    padding: 14px 16px;
-    border: 1px solid #ffffff;
-  }
-  .settings.open { display: block; }
-
-  .settings-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin: 8px 0;
-    font-size: 0.85rem;
-    color: #e0e0e0;
-    letter-spacing: 0.1em;
-  }
-  .settings input[type="number"] {
-    background: #000000;
-    color: #ffffff;
-    border: 1px solid #ffffff;
-    font-family: inherit;
-    font-size: 0.85rem;
-    padding: 4px 6px;
-    width: 80px;
-    -moz-appearance: textfield;
-  }
-  .settings input::-webkit-outer-spin-button,
-  .settings input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .revive {
-    display: none;
-    position: fixed;
-    bottom: 16px;
-    right: 16px;
-    background: #000000;
-    color: #ffffff;
-    border: 1px solid #ffffff;
-    padding: 8px 12px;
-    font-family: inherit;
-    font-size: 0.85rem;
-    letter-spacing: 0.15em;
-    cursor: pointer;
-  }
-  .revive.show { display: inline-block; }
+  :root { color-scheme: dark; --page: #0d1118; --bg: #141820; --fg: #f2f4f8; --muted: #a4adbd; --accent: #b5c6ff; --surface: #242c3b; --border: #394459; }
+  [data-theme="Paper"] { color-scheme: light; --page: #eae5db; --bg: #faf7f0; --fg: #292b32; --muted: #64646c; --accent: #5554a5; --surface: #eae5db; --border: #c9c3b8; }
+  [data-theme="Forest"] { color-scheme: dark; --page: #0c1915; --bg: #12231e; --fg: #edf5ee; --muted: #a0b9ab; --accent: #a6dbb5; --surface: #233c31; --border: #3e5d4d; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--page); color: var(--fg); font-family: 'Segoe UI', system-ui, sans-serif; }
+  button, input, select { font: inherit; }
+  button, select { cursor: pointer; }
+  button { min-height: 44px; border: 1px solid transparent; border-radius: 10px; background: var(--surface); color: var(--fg); padding: 10px 16px; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  button:disabled { cursor: default; opacity: .55; }
+  .app { width: min(520px, 100%); }
+  .eyebrow { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+  .intro { margin: 0 0 16px 4px; }
+  .card { padding: 28px; border: 1px solid var(--border); border-radius: 24px; background: var(--bg); box-shadow: 0 24px 70px #00000020; }
+  header, .toolbar, .footer, .theme-row, .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 18px; font-weight: 600; letter-spacing: -.03em; margin: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .mark { width: 12px; height: 12px; border: 3px solid var(--accent); border-radius: 50%; }
+  .quiet { background: transparent; color: var(--muted); }
+  .toolbar { margin-top: 28px; }
+  .tabs { display: flex; padding: 4px; border-radius: 12px; background: var(--surface); }
+  .tabs button { background: transparent; padding: 8px 18px; }
+  .tabs button[aria-pressed="true"] { background: var(--bg); color: var(--accent); box-shadow: 0 2px 5px #00000018; }
+  .display { padding: 34px 0 30px; text-align: center; }
+  .status { min-height: 16px; color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+  .digits { margin: 12px 0 10px; font: 400 clamp(48px, 13vw, 76px)/1.15 'Consolas', 'Courier New', monospace; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+  .digits.clock { font-size: clamp(36px, 10vw, 60px); }
+  .detail { color: var(--muted); font-size: 13px; min-height: 20px; }
+  .terminal { container-type: inline-size; font: 12px/1.5 'Consolas', 'Courier New', monospace; font-variant-numeric: tabular-nums; }
+  .progress-heading, .progress-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
+  .progress-heading { margin-bottom: 8px; }
+  .progress-heading strong { color: var(--accent); font-weight: normal; }
+  .progress-meta { margin-top: 8px; font-size: 11px; }
+  .progress-track { height: 28px; display: flex; align-items: center; color: var(--accent); }
+  .progress-cells { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 4px; width: 100%; height: 16px; }
+  .progress-cell { border: 1px solid var(--border); background: var(--surface); }
+  .progress-cell.filled { background: var(--accent); border-color: var(--accent); }
+  .installer-bar { width: 100%; white-space: pre; text-align: center; font-size: clamp(12px, 5.5cqw, 26px); line-height: 1; letter-spacing: 0; }
+  .ascii-bar { width: 100%; text-align: center; white-space: pre; font-size: clamp(11px, 3.1vw, 16px); letter-spacing: 0; }
+  .bar-picker { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+  .bar-picker select { max-width: 65%; }
+  .footer { margin-top: 20px; }
+  .remaining { color: var(--muted); font-size: 12px; line-height: 1.8; }
+  .remaining strong { display: block; color: var(--fg); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .controls { display: flex; gap: 8px; }
+  .primary { background: var(--accent); color: var(--bg); min-width: 104px; font-weight: 600; }
+  .theme-row { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .theme-picker { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+  select, input { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg); padding: 8px 12px; }
+  .settings { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
+  .settings-row { margin: 12px 0; font-size: 13px; }
+  .settings-row input { width: 84px; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .keyboard-hint { text-align: center; margin-top: 20px; }
+  kbd { font: inherit; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; }
+  .revive { position: fixed; right: 24px; bottom: 24px; background: var(--bg); border-color: var(--border); }
+  @media (max-width: 420px) { body { padding: 16px; } .card { padding: 20px; } .tabs button { padding: 8px 12px; } .toolbar { gap: 4px; } .footer { flex-wrap: wrap; } .controls { flex: 1; justify-content: flex-end; } .primary { min-width: 88px; } .theme-row { gap: 4px; } .theme-picker { gap: 6px; } }
 </style>
 </head>
 <body>
-
-<div class="viewfinder" id="viewfinder">
-  <span class="bracket tl">&#x2310;</span>
-  <span class="bracket tr">&#xAC;</span>
-  <span class="bracket bl">&#xAC;</span>
-  <span class="bracket br">&#x2310;</span>
-
-  <div class="header">
-    <span class="label">FOCUS</span>
-    <div class="icons">
-      <button class="icon-btn" id="settingsBtn" aria-label="Settings">&#x2699;</button>
-      <button class="icon-btn" id="closeBtn" aria-label="Close">&#xD7;</button>
+<main class="app" id="app">
+  <p class="eyebrow intro">A little space to concentrate</p>
+  <section class="card" aria-label="Study clock">
+    <header>
+      <div class="brand"><span class="mark" aria-hidden="true"></span><h1>Focus</h1></div>
+      <button class="quiet" id="hideBtn" title="Hide and pause timer">Hide <span aria-hidden="true">↘</span></button>
+    </header>
+    <div class="toolbar">
+      <div class="tabs" role="group" aria-label="Display mode">
+        <button id="timerTab" aria-pressed="true">Focus timer</button>
+        <button id="clockTab" aria-pressed="false">Clock</button>
+      </div>
+      <button class="quiet" id="formatBtn" title="Switch clock time format">24 hour</button>
     </div>
-  </div>
-
-  <div class="timer" id="timer">25:00</div>
-
-  <div class="progress">
-    <div class="progress-fill" id="progressFill"></div>
-  </div>
-
-  <div class="footer">
-    <span class="remaining" id="remaining">REMAINING 02:05:00</span>
-    <div class="controls">
-      <button class="icon-btn" id="playBtn" aria-label="Play">&#x25B6;</button>
-      <button class="icon-btn" id="resetBtn" aria-label="Reset">&#x25A0;</button>
+    <div class="display">
+      <div class="status" id="status" role="status">Ready to focus</div>
+      <div class="digits" id="display" role="timer" aria-label="Session time remaining">25:00</div>
+      <div class="detail" id="detail">Session 1 of 5 · Make room for one thing.</div>
     </div>
-  </div>
-
-  <div class="settings" id="settings">
-    <div class="settings-row">
-      <span>SESSION (MIN)</span>
-      <input type="number" id="sessionMin" min="5" max="60" value="25">
+    <div class="terminal">
+      <div class="progress-heading"><span id="progressLabel">FOCUS SESSION</span><strong id="progressPercent">0%</strong></div>
+      <div id="progress" class="progress-track" data-style="Installer" role="progressbar" aria-label="Session progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="progress-cells" id="progressCells" aria-hidden="true"></div>
+        <div class="installer-bar" id="installerBar" aria-hidden="true"></div>
+        <div class="ascii-bar" id="asciiBar" aria-hidden="true" hidden></div>
+      </div>
+      <div class="progress-meta"><span id="progressStatus">READY</span><span id="progressRemaining">25:00 left</span></div>
     </div>
-    <div class="settings-row">
-      <span>DAILY SESSIONS</span>
-      <input type="number" id="dailySessions" min="1" max="20" value="5">
+    <div class="footer">
+      <div class="remaining">Daily goal remaining<strong id="remaining">02:05:00</strong></div>
+      <div class="controls">
+        <button class="primary" id="playBtn">Start</button>
+        <button id="resetBtn" title="Reset current session">Reset</button>
+      </div>
     </div>
-  </div>
-</div>
-
-<button class="revive" id="reviveBtn">FOCUS</button>
-
+    <div class="theme-row">
+      <label class="theme-picker" for="theme">Theme <select id="theme"><option>Midnight</option><option>Paper</option><option>Forest</option></select></label>
+      <button class="quiet" id="settingsBtn" aria-expanded="false" aria-controls="settings">Settings</button>
+    </div>
+    <label class="bar-picker" for="progressStyle">Progress bar
+      <select id="progressStyle">
+        <option value="Installer">Package installer</option>
+        <option value="ASCII">ASCII terminal</option>
+        <option value="Segments">Retro segments</option>
+      </select>
+    </label>
+    <section class="settings" id="settings" aria-label="Timer settings" hidden>
+      <div class="settings-row"><label for="sessionMin">Session length (minutes)</label><input type="number" id="sessionMin" min="5" max="60" step="1" value="25"></div>
+      <div class="settings-row"><label for="dailySessions">Daily sessions</label><input type="number" id="dailySessions" min="1" max="20" step="1" value="5"></div>
+      <p class="hint" id="settingsHint">Changing the plan starts a fresh daily goal.</p>
+    </section>
+  </section>
+  <p class="hint keyboard-hint"><kbd>Space</kbd> to start or pause · One session at a time.</p>
+</main>
+<button class="revive" id="reviveBtn" hidden>↗ Open Focus</button>
 <script>
-  var STATE = { IDLE: 'idle', RUNNING: 'running', PAUSED: 'paused', COMPLETED: 'completed' };
+  const $ = id => document.getElementById(id);
+  const themes = ['Midnight', 'Paper', 'Forest'];
+  const progressStyles = ['Installer', 'ASCII', 'Segments'];
+  let progressStyle = 'Installer';
+  let sessionMinutes = 25;
+  let dailySessions = 5;
+  let sessionsCompleted = 0;
+  let totalSeconds = sessionMinutes * 60;
+  let secondsLeft = totalSeconds;
+  let state = 'idle';
+  let mode = 'timer';
+  let use24Hour = true;
+  let deadline = 0;
+  let intervalId = null;
 
-  var sessionMinutes = 25;
-  var dailySessions = 5;
-  var totalSeconds = sessionMinutes * 60;
-  var secondsLeft = totalSeconds;
-  var sessionsCompleted = 0;
-  var state = STATE.IDLE;
-  var intervalId = null;
+  try {
+    const prefs = JSON.parse(localStorage.getItem('focus.preferences')) || {};
+    if (themes.includes(prefs.theme)) $('theme').value = prefs.theme;
+    use24Hour = prefs.use24Hour !== false;
+    if (progressStyles.includes(prefs.progressStyle)) progressStyle = prefs.progressStyle;
+  } catch { /* The clock also works when browser storage is unavailable. */ }
+  document.documentElement.dataset.theme = $('theme').value;
+  $('progressStyle').value = progressStyle;
 
-  var timerEl = document.getElementById('timer');
-  var remainingEl = document.getElementById('remaining');
-  var fillEl = document.getElementById('progressFill');
-  var playBtn = document.getElementById('playBtn');
-  var resetBtn = document.getElementById('resetBtn');
-  var settingsBtn = document.getElementById('settingsBtn');
-  var closeBtn = document.getElementById('closeBtn');
-  var settingsPanel = document.getElementById('settings');
-  var reviveBtn = document.getElementById('reviveBtn');
-  var viewfinder = document.getElementById('viewfinder');
-  var sessionMinInput = document.getElementById('sessionMin');
-  var dailySessionsInput = document.getElementById('dailySessions');
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-
-  function fmtMS(s) {
-    var m = Math.floor(s / 60);
-    var sec = s % 60;
-    return pad(m) + ':' + pad(sec);
+  function savePreferences() {
+    try { localStorage.setItem('focus.preferences', JSON.stringify({ theme: $('theme').value, use24Hour, progressStyle })); } catch {}
   }
-
-  function fmtHMS(s) {
-    var h = Math.floor(s / 3600);
-    var m = Math.floor((s % 3600) / 60);
-    var sec = s % 60;
-    return pad(h) + ':' + pad(m) + ':' + pad(sec);
-  }
-
+  function fmtMS(s) { return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+  function fmtHMS(s) { return String(Math.floor(s / 3600)).padStart(2, '0') + ':' + fmtMS(s % 3600); }
   function dailyRemainingSeconds() {
-    var dailyTotal = dailySessions * sessionMinutes * 60;
-    var elapsed;
-    if (state === STATE.COMPLETED) {
-      elapsed = sessionsCompleted * sessionMinutes * 60;
+    const elapsed = sessionsCompleted * totalSeconds + (state === 'completed' ? 0 : totalSeconds - secondsLeft);
+    return Math.max(0, dailySessions * totalSeconds - elapsed);
+  }
+  function renderClock() {
+    if (mode !== 'clock') return;
+    const now = new Date();
+    $('display').textContent = now.toLocaleTimeString('en-GB', { hour12: !use24Hour, hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\s[ap]m$/i, '');
+    $('detail').textContent = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) + (use24Hour ? '' : (now.getHours() >= 12 ? ' · PM' : ' · AM'));
+  }
+  function renderProgress() {
+    const fraction = Math.max(0, Math.min(1, totalSeconds ? (totalSeconds - secondsLeft) / totalSeconds : 0));
+    const percent = Math.floor(fraction * 100);
+    const status = ({ idle: 'READY', running: 'STUDYING', paused: 'PAUSED', completed: 'DONE' })[state];
+    $('progress').dataset.style = progressStyle;
+    $('progress').setAttribute('aria-valuenow', String(percent));
+    $('progress').setAttribute('aria-valuetext', `${percent}% · ${status.toLowerCase()} · ${fmtMS(secondsLeft)} remaining`);
+    $('progressPercent').textContent = `${percent}%`;
+    $('progressLabel').textContent = progressStyle === 'ASCII' ? '$ focus --session' : 'FOCUS SESSION';
+    $('progressStatus').textContent = status;
+    $('progressRemaining').textContent = `${fmtMS(secondsLeft)} left`;
+    const ascii = progressStyle === 'ASCII';
+    const installer = progressStyle === 'Installer';
+    $('asciiBar').hidden = !ascii;
+    $('installerBar').hidden = !installer;
+    $('progressCells').hidden = ascii || installer;
+    if (installer) {
+      const filled = Math.floor(fraction * 28);
+      $('installerBar').textContent = '[' + '█'.repeat(filled) + '░'.repeat(28 - filled) + ']';
+    } else if (ascii) {
+      const filled = Math.floor(fraction * 30);
+      $('asciiBar').textContent = '[' + '='.repeat(filled) + (filled < 30 ? '>' + '-'.repeat(29 - filled) : '') + ']';
     } else {
-      elapsed = sessionsCompleted * sessionMinutes * 60 + (totalSeconds - secondsLeft);
+      const count = 20;
+      const filled = Math.floor(fraction * count);
+      if ($('progressCells').children.length !== count) {
+        $('progressCells').replaceChildren(...Array.from({ length: count }, () => {
+          const cell = document.createElement('span');
+          cell.className = 'progress-cell';
+          return cell;
+        }));
+      }
+      Array.from($('progressCells').children).forEach((cell, index) => cell.classList.toggle('filled', index < filled));
     }
-    return Math.max(0, dailyTotal - elapsed);
   }
-
   function render() {
-    timerEl.textContent = fmtMS(secondsLeft);
-    remainingEl.textContent = 'REMAINING ' + fmtHMS(dailyRemainingSeconds());
-    var pct = totalSeconds === 0 ? 0 : ((totalSeconds - secondsLeft) / totalSeconds) * 100;
-    fillEl.style.width = pct + '%';
-    playBtn.innerHTML = state === STATE.RUNNING ? '&#x23F8;' : '&#x25B6;';
+    const clockMode = mode === 'clock';
+    const finishedGoal = sessionsCompleted >= dailySessions;
+    $('display').classList.toggle('clock', clockMode);
+    $('display').setAttribute('aria-label', clockMode ? 'Current local time' : 'Session time remaining');
+    $('timerTab').setAttribute('aria-pressed', String(!clockMode));
+    $('clockTab').setAttribute('aria-pressed', String(clockMode));
+    $('formatBtn').textContent = use24Hour ? '24 hour' : '12 hour';
+    $('status').textContent = clockMode ? 'Local time' : ({ idle: 'Ready to focus', running: 'Focus time', paused: 'Paused · take your time', completed: finishedGoal ? 'Daily goal complete' : 'Session complete' })[state];
+    if (clockMode) renderClock();
+    else {
+      $('display').textContent = fmtMS(secondsLeft);
+      $('detail').textContent = state === 'completed' ? `${sessionsCompleted} of ${dailySessions} sessions complete. Nicely done.` : `Session ${Math.min(sessionsCompleted + 1, dailySessions)} of ${dailySessions} · Make room for one thing.`;
+    }
+    $('remaining').textContent = fmtHMS(dailyRemainingSeconds());
+    renderProgress();
+    $('playBtn').textContent = ({ idle: 'Start', running: 'Pause', paused: 'Resume', completed: finishedGoal ? 'New goal' : 'Next session' })[state];
+    const locked = state === 'running' || state === 'paused';
+    $('sessionMin').disabled = locked;
+    $('dailySessions').disabled = locked;
+    $('settingsHint').textContent = locked ? 'Reset the timer to change your plan.' : 'Changing the plan starts a fresh daily goal.';
+    document.title = state === 'running' ? `${fmtMS(secondsLeft)} · Focus` : 'Focus — Study clock';
   }
-
   function tick() {
-    if (state !== STATE.RUNNING) return;
-    secondsLeft--;
-    if (secondsLeft <= 0) {
-      secondsLeft = 0;
+    if (state !== 'running') return;
+    secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    if (secondsLeft === 0) {
       clearInterval(intervalId);
       intervalId = null;
-      state = STATE.COMPLETED;
+      state = 'completed';
       sessionsCompleted++;
-      render();
-      flashThenReset();
-      return;
     }
     render();
   }
-
-  function flashThenReset() {
-    var count = 0;
-    var flashId = setInterval(function () {
-      timerEl.classList.toggle('flash');
-      count++;
-      if (count >= 6) {
-        clearInterval(flashId);
-        timerEl.classList.remove('flash');
-        reset();
-      }
-    }, 250);
-  }
-
   function start() {
-    if (state === STATE.RUNNING) return;
-    state = STATE.RUNNING;
-    if (intervalId) clearInterval(intervalId);
-    intervalId = setInterval(tick, 1000);
+    if (state === 'running') return;
+    if (state === 'completed') {
+      if (sessionsCompleted >= dailySessions) sessionsCompleted = 0;
+      secondsLeft = totalSeconds;
+    }
+    state = 'running';
+    deadline = Date.now() + secondsLeft * 1000;
+    intervalId = setInterval(tick, 200);
     render();
   }
-
   function pause() {
-    if (state !== STATE.RUNNING) return;
-    state = STATE.PAUSED;
+    if (state !== 'running') return;
+    tick();
+    if (state === 'completed') return;
+    state = 'paused';
     clearInterval(intervalId);
     intervalId = null;
     render();
   }
-
   function reset() {
-    state = STATE.IDLE;
-    if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    clearInterval(intervalId);
+    intervalId = null;
+    if (sessionsCompleted >= dailySessions) sessionsCompleted = 0;
+    state = 'idle';
     totalSeconds = sessionMinutes * 60;
     secondsLeft = totalSeconds;
     render();
   }
-
-  playBtn.addEventListener('click', function () {
-    if (state === STATE.RUNNING) pause(); else start();
+  function togglePlay() { if (state === 'running') pause(); else start(); }
+  function setMode(value) { mode = value; render(); }
+  function updatePlan() {
+    if (state === 'running' || state === 'paused') return;
+    sessionMinutes = Math.max(5, Math.min(60, parseInt($('sessionMin').value, 10) || 25));
+    dailySessions = Math.max(1, Math.min(20, parseInt($('dailySessions').value, 10) || 5));
+    $('sessionMin').value = sessionMinutes;
+    $('dailySessions').value = dailySessions;
+    sessionsCompleted = 0;
+    reset();
+  }
+  $('playBtn').addEventListener('click', togglePlay);
+  $('resetBtn').addEventListener('click', reset);
+  $('timerTab').addEventListener('click', () => setMode('timer'));
+  $('clockTab').addEventListener('click', () => setMode('clock'));
+  $('formatBtn').addEventListener('click', () => { use24Hour = !use24Hour; savePreferences(); render(); });
+  $('theme').addEventListener('change', () => { document.documentElement.dataset.theme = $('theme').value; savePreferences(); });
+  $('progressStyle').addEventListener('change', () => {
+    progressStyle = $('progressStyle').value;
+    renderProgress();
+    savePreferences();
   });
-
-  resetBtn.addEventListener('click', reset);
-
-  settingsBtn.addEventListener('click', function () {
-    settingsPanel.classList.toggle('open');
+  $('settingsBtn').addEventListener('click', () => {
+    $('settings').hidden = !$('settings').hidden;
+    $('settingsBtn').setAttribute('aria-expanded', String(!$('settings').hidden));
   });
-
-  closeBtn.addEventListener('click', function () {
-    if (state === STATE.RUNNING) pause();
-    viewfinder.classList.add('hidden');
-    reviveBtn.classList.add('show');
-  });
-
-  reviveBtn.addEventListener('click', function () {
-    viewfinder.classList.remove('hidden');
-    reviveBtn.classList.remove('show');
-  });
-
-  sessionMinInput.addEventListener('change', function () {
-    var v = parseInt(sessionMinInput.value, 10);
-    if (isNaN(v)) v = 25;
-    v = Math.min(60, Math.max(5, v));
-    sessionMinInput.value = v;
-    sessionMinutes = v;
-    if (state === STATE.IDLE) {
-      totalSeconds = sessionMinutes * 60;
-      secondsLeft = totalSeconds;
+  $('sessionMin').addEventListener('change', updatePlan);
+  $('dailySessions').addEventListener('change', updatePlan);
+  $('hideBtn').addEventListener('click', () => { pause(); $('app').hidden = true; $('reviveBtn').hidden = false; $('reviveBtn').focus(); });
+  $('reviveBtn').addEventListener('click', () => { $('app').hidden = false; $('reviveBtn').hidden = true; $('hideBtn').focus(); });
+  document.addEventListener('keydown', event => {
+    if (event.code === 'Space' && !event.repeat && !$('app').hidden && !['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'].includes(event.target.tagName)) {
+      event.preventDefault();
+      togglePlay();
     }
-    render();
   });
-
-  dailySessionsInput.addEventListener('change', function () {
-    var v = parseInt(dailySessionsInput.value, 10);
-    if (isNaN(v)) v = 5;
-    v = Math.min(20, Math.max(1, v));
-    dailySessionsInput.value = v;
-    dailySessions = v;
-    render();
-  });
-
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); renderClock(); } });
+  setInterval(renderClock, 1000);
   render();
 </script>
-
 </body>
 </html>
