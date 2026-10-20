@@ -11,13 +11,14 @@ CHIME_LEAD_SECS = 10
 
 W = 440
 H_BASE = 424
-H_COMPACT = 44
+H_COMPACT = 38
 PAD_X = 28
+COMPACT_PAD_X = 8
 
 BAR_Y0_NORMAL  = 244
 BAR_Y1_NORMAL  = 260
-BAR_Y0_COMPACT = 6
-BAR_Y1_COMPACT = 20
+BAR_Y0_COMPACT = 3
+BAR_Y1_COMPACT = 17
 PROGRESS_STYLES = ("Installer", "ASCII", "Segments")
 
 THEMES = {
@@ -297,34 +298,38 @@ class StudyClock(tk.Tk):
         percent = int(fraction * 100)
         y0 = BAR_Y0_COMPACT if self.compact_open else BAR_Y0_NORMAL
         y1 = BAR_Y1_COMPACT if self.compact_open else BAR_Y1_NORMAL
-        x0, x1 = PAD_X, W - PAD_X
+        padding = COMPACT_PAD_X if self.compact_open else PAD_X
+        x0, x1 = padding, W - padding
         font = ("Consolas", -12)
         status = {"idle": "READY", "paused": "PAUSED", "completed": "DONE"}.get(
             self.state, "BREAK" if self.current_phase == "break" else "STUDYING")
-        cv.create_text(x1, 32 if self.compact_open else 282,
+        cv.create_text(x1, 28 if self.compact_open else 282,
                        text=f"{percent}%", font=font, fill=c["accent"], anchor="e", tags=("bar", "bar_percent"))
         remaining = self.study_hours * 3600 if self.state == "idle" else max(0, self.total_left)
-        meta = (f"{status}  {fmt_ms(self.time_left)} left" if self.compact_open
+        meta = (status if self.compact_open
                 else f"Session left {fmt_hms(remaining)}")
-        cv.create_text(x0, 32 if self.compact_open else 282, text=meta,
+        cv.create_text(x0, 28 if self.compact_open else 282, text=meta,
                        font=font, fill=c["dim"], anchor="w", tags=("bar", "bar_status"))
+        if self.compact_open:
+            cv.create_text(W // 2, 28, text=f"{fmt_ms(self.time_left)} left",
+                           font=font, fill=c["fg"], tags=("bar", "bar_remaining"))
         if self.progress_style == "Installer":
-            count = 28
+            count = self._bar_cell_count(28)
             filled = int(fraction * count)
             text = "[" + "█" * filled + "░" * (count - filled) + "]"
             cv.create_text(W // 2, (y0 + y1) / 2, text=text,
-                           font=self._bar_font(text), fill=c["accent"], tags=("bar", "bar_installer"))
+                           font=self._bar_font(text), fill=c["accent"], tags=("bar", "bar_installer", "bar_track"))
             return
         if self.progress_style == "ASCII":
-            count = 30
+            count = self._bar_cell_count(30)
             filled = int(fraction * count)
             contents = "=" * filled
             if filled < count:
                 contents += ">" + "-" * (count - filled - 1)
             cv.create_text(W // 2, (y0 + y1) / 2, text=f"[{contents}]",
-                           font=self._bar_font(f"[{contents}]"), fill=c["accent"], tags=("bar", "bar_ascii"))
+                           font=self._bar_font(f"[{contents}]"), fill=c["accent"], tags=("bar", "bar_ascii", "bar_track"))
             return
-        count, gap = 20, 4
+        count, gap = 20, 3 if self.compact_open else 4
         width = (x1 - x0 - gap * (count - 1)) / count
         filled = int(fraction * count)
         for index in range(count):
@@ -332,13 +337,21 @@ class StudyClock(tk.Tk):
             cv.create_rectangle(left, y0, left + width, y1,
                                  fill=c["accent"] if index < filled else c["surface"],
                                  outline=c["border"],
-                                 tags=("bar", "bar_filled" if index < filled else "bar_empty"))
+                                 tags=("bar", "bar_track", "bar_filled" if index < filled else "bar_empty"))
+
+    def _bar_cell_count(self, normal_count):
+        if not self.compact_open:
+            return normal_count
+        # Add characters to fill the strip without stretching or shrinking the font.
+        character_width = max(1, self._bar_font("[]").measure("0"))
+        return max(1, (W - 2 * COMPACT_PAD_X - 4) // character_width - 2)
 
     def _bar_font(self, text):
         key = (len(text), self.compact_open)
         if key not in self._mono_fonts:
             font = tkfont.Font(self, family="Consolas", size=-16 if self.compact_open else -22)
-            while font.measure(text) > W - 2 * PAD_X - 4:
+            padding = COMPACT_PAD_X if self.compact_open else PAD_X
+            while font.measure(text) > W - 2 * padding - 4:
                 font.configure(size=font.cget("size") + 1)
             self._mono_fonts[key] = font
         return self._mono_fonts[key]
