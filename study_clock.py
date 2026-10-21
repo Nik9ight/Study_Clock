@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 CHIME_FILE = "freesound_community-timer-with-chime-101253.mp3"
+START_CHIME_FILE = "start-chime.wav"
 CHIME_LEAD_SECS = 10
 
 W = 440
@@ -428,14 +429,16 @@ class StudyClock(tk.Tk):
 
     # ── Chime ────────────────────────────────────────────────────────────────
 
-    def _play_chime(self):
+    def _play_chime(self, kind="end"):
         try:
             winmm = ctypes.windll.winmm
+            filename = START_CHIME_FILE if kind == "start" else CHIME_FILE
+            media_type = "waveaudio" if kind == "start" else "mpegvideo"
             path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), CHIME_FILE)
+                os.path.dirname(os.path.abspath(__file__)), filename)
             winmm.mciSendStringW("close chime", None, 0, 0)
             winmm.mciSendStringW(
-                f'open "{path}" type mpegvideo alias chime', None, 0, 0)
+                f'open "{path}" type {media_type} alias chime', None, 0, 0)
             winmm.mciSendStringW("play chime from 0", None, 0, 0)
         except Exception:
             pass
@@ -457,6 +460,7 @@ class StudyClock(tk.Tk):
     def _start(self):
         if self.state == "completed":
             return
+        new_session = self.state == "idle"
         if self.settings_open:
             self._close_settings()
         if self.state == "idle":
@@ -465,6 +469,8 @@ class StudyClock(tk.Tk):
         if self.timer_id:
             self.after_cancel(self.timer_id)
         self.timer_id = self.after(1000, self._tick)
+        if new_session:
+            self._play_chime("start")
         self._render()
 
     def _init_session(self):
@@ -534,6 +540,7 @@ class StudyClock(tk.Tk):
         else:
             self.current_phase = "focus"
             self.phase_total   = self._focus_secs()
+            self._play_chime("start")
         self.time_left = self.phase_total
 
     # ── Flash on completion ──────────────────────────────────────────────────

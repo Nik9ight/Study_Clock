@@ -11,30 +11,31 @@
   [data-theme="Forest"] { color-scheme: dark; --page: #0c1915; --bg: #12231e; --fg: #edf5ee; --muted: #a0b9ab; --accent: #a6dbb5; --surface: #233c31; --border: #3e5d4d; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--page); color: var(--fg); font-family: 'Segoe UI', system-ui, sans-serif; }
-  button, input, select { font: inherit; }
+  body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; justify-items: center; align-items: safe center; padding: clamp(8px, 2.5vmin, 28px); background: var(--page); color: var(--fg); font-family: 'Segoe UI', system-ui, sans-serif; }
+  button, input, select, textarea { font: inherit; }
   button, select { cursor: pointer; }
   button { min-height: 44px; border: 1px solid transparent; border-radius: 10px; background: var(--surface); color: var(--fg); padding: 10px 16px; }
   button:hover { border-color: var(--accent); }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
   button:disabled { cursor: default; opacity: .55; }
-  .app { width: min(520px, 100%); }
+  .app { width: min(100%, clamp(340px, 58vw, 720px)); min-width: 0; }
   .eyebrow { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
   .intro { margin: 0 0 16px 4px; }
-  .card { padding: 28px; border: 1px solid var(--border); border-radius: 24px; background: var(--bg); box-shadow: 0 24px 70px #00000020; }
+  .card { padding: clamp(14px, min(3vw, 3dvh), 36px); border: 1px solid var(--border); border-radius: clamp(14px, 3vmin, 24px); background: var(--bg); box-shadow: 0 24px 70px #00000020; }
+  .card > *, .preferences > *, .controls, .theme-picker { min-width: 0; }
   header, .toolbar, .footer, .theme-row, .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   h1 { font-size: 18px; font-weight: 600; letter-spacing: -.03em; margin: 0; }
   .brand { display: flex; align-items: center; gap: 10px; }
   .mark { width: 12px; height: 12px; border: 3px solid var(--accent); border-radius: 50%; }
   .quiet { background: transparent; color: var(--muted); }
-  .toolbar { margin-top: 28px; }
+  .toolbar { margin-top: clamp(10px, 3dvh, 28px); flex-wrap: wrap; }
   .tabs { display: flex; padding: 4px; border-radius: 12px; background: var(--surface); }
   .tabs button { background: transparent; padding: 8px 18px; }
   .tabs button[aria-pressed="true"] { background: var(--bg); color: var(--accent); box-shadow: 0 2px 5px #00000018; }
-  .display { padding: 34px 0 30px; text-align: center; }
+  .display { container-type: inline-size; padding: clamp(12px, 4dvh, 42px) 0 clamp(12px, 3.5dvh, 34px); text-align: center; }
   .status { min-height: 16px; color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
-  .digits { margin: 12px 0 10px; font: 400 clamp(48px, 13vw, 76px)/1.15 'Consolas', 'Courier New', monospace; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
-  .digits.clock { font-size: clamp(36px, 10vw, 60px); }
+  .digits { margin: clamp(6px, 1.5dvh, 14px) 0; font: 400 clamp(40px, min(20cqw, 12dvh), 100px)/1.15 'Consolas', 'Courier New', monospace; letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+  .digits.clock { font-size: clamp(28px, min(14cqw, 10dvh), 76px); }
   .detail { color: var(--muted); font-size: 13px; min-height: 20px; }
   .terminal { container-type: inline-size; font: 12px/1.5 'Consolas', 'Courier New', monospace; font-variant-numeric: tabular-nums; }
   .progress-heading, .progress-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); }
@@ -46,25 +47,89 @@
   .progress-cell { border: 1px solid var(--border); background: var(--surface); }
   .progress-cell.filled { background: var(--accent); border-color: var(--accent); }
   .installer-bar { width: 100%; white-space: pre; text-align: center; font-size: clamp(12px, 5.5cqw, 26px); line-height: 1; letter-spacing: 0; }
-  .ascii-bar { width: 100%; text-align: center; white-space: pre; font-size: clamp(11px, 3.1vw, 16px); letter-spacing: 0; }
+  .ascii-bar { width: 100%; text-align: center; white-space: pre; font-size: clamp(10px, 5cqw, 22px); letter-spacing: 0; }
   .bar-picker { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12px; }
   .bar-picker select { max-width: 65%; }
-  .footer { margin-top: 20px; }
-  .remaining { color: var(--muted); font-size: 12px; line-height: 1.8; }
+  .footer { margin-top: clamp(10px, 2.5dvh, 24px); flex-wrap: wrap; }
+  .remaining { flex-shrink: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
   .remaining strong { display: block; color: var(--fg); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .controls { display: flex; gap: 8px; }
   .primary { background: var(--accent); color: var(--bg); min-width: 104px; font-weight: 600; }
-  .theme-row { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .theme-row { margin-top: clamp(12px, 3dvh, 28px); padding-top: clamp(12px, 2.5dvh, 22px); border-top: 1px solid var(--border); flex-wrap: wrap; }
   .theme-picker { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
-  select, input { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg); padding: 8px 12px; }
+  select, input { min-width: 0; max-width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg); padding: 8px 12px; }
   .settings { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 16px; }
   .settings-row { margin: 12px 0; font-size: 13px; }
   .settings-row input { width: 84px; }
   .hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
-  .keyboard-hint { text-align: center; margin-top: 20px; }
+  .keyboard-hint { text-align: center; margin: clamp(10px, 2dvh, 20px) 0 0; }
   kbd { font: inherit; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; }
   .revive { position: fixed; right: 24px; bottom: 24px; background: var(--bg); border-color: var(--border); }
-  @media (max-width: 420px) { body { padding: 16px; } .card { padding: 20px; } .tabs button { padding: 8px 12px; } .toolbar { gap: 4px; } .footer { flex-wrap: wrap; } .controls { flex: 1; justify-content: flex-end; } .primary { min-width: 88px; } .theme-row { gap: 4px; } .theme-picker { gap: 6px; } }
+  .scratchpad { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .scratch-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .scratch-tabs button { flex: 1; padding-inline: 8px; font-size: 13px; color: var(--muted); background: transparent; }
+  .scratch-tabs button[aria-selected="true"] { background: var(--surface); color: var(--accent); }
+  .notes-input { display: block; width: 100%; min-height: 96px; height: clamp(96px, 17dvh, 190px); resize: vertical; border: 1px solid var(--border); border-radius: 10px; padding: 12px; color: var(--fg); background: var(--surface); font-size: 13px; line-height: 1.65; }
+  .notes-input::placeholder, .reminder-form input::placeholder { color: var(--muted); opacity: .85; }
+  .save-status { margin: 8px 0 0; min-height: 18px; font-size: 11px; color: var(--muted); }
+  .reminder-form { display: flex; gap: 8px; }
+  .reminder-form input { width: 0; flex: 1; font-size: 13px; }
+  .reminder-form button { padding-inline: 12px; color: var(--accent); }
+  .reminder-list { list-style: none; padding: 0; margin: 8px 0 0; max-height: 200px; overflow-y: auto; }
+  .reminder-item { display: flex; align-items: start; gap: 6px; padding-block: 4px; border-bottom: 1px solid var(--border); }
+  .reminder-item label { flex: 1; min-width: 0; display: flex; align-items: start; gap: 8px; padding-block: 8px; font-size: 13px; line-height: 1.6; }
+  .reminder-item input { flex: 0 0 24px; width: 24px; height: 24px; min-height: 24px; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
+  .reminder-item span { overflow-wrap: anywhere; }
+  .reminder-item input:checked + span { text-decoration: line-through; color: var(--muted); }
+  .remove-reminder { flex: 0 0 32px; padding-inline: 0; background: transparent; color: var(--muted); }
+  .reminders-empty { margin: 12px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+  @media (max-width: 420px) {
+    .tabs button { padding: 8px 10px; }
+    .toolbar { gap: 4px; }
+    .controls { flex: 1 0 auto; justify-content: flex-end; }
+    .primary { min-width: 88px; }
+    .theme-row { gap: 4px; }
+    .theme-picker { gap: 6px; }
+    .bar-picker { gap: 8px; }
+  }
+  @media (max-width: 340px) {
+    .toolbar { font-size: 13px; }
+    .tabs button, #formatBtn { padding-inline: 8px; }
+    .footer { gap: 8px; }
+  }
+  @media (max-height: 740px) {
+    .intro, .keyboard-hint { display: none; }
+    .display { padding-block: 12px; }
+    .toolbar, .footer { margin-top: 10px; }
+    .theme-row { margin-top: 12px; padding-top: 12px; }
+    .settings { margin-top: 12px; padding-top: 8px; }
+  }
+  @media (max-height: 540px) {
+    .display { padding-block: 8px; }
+    .digits { margin-block: 4px; }
+    .detail { font-size: 12px; }
+    .progress-heading { margin-bottom: 4px; }
+    .progress-meta { margin-top: 4px; }
+    .scratchpad { margin-top: 12px; padding-top: 8px; }
+    .scratch-tabs { margin-bottom: 8px; }
+    .notes-input { height: 96px; }
+    .reminder-list { max-height: 96px; }
+  }
+  /* A wide, shallow tab puts preferences beside the timer. */
+  @media (min-width: 900px) and (min-aspect-ratio: 3/2), (min-width: 700px) and (max-height: 600px) {
+    .app { width: min(100%, 1040px); }
+    .card { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr); column-gap: clamp(20px, 3vw, 40px); grid-template-areas: 'header preferences' 'toolbar preferences' 'display preferences' 'terminal preferences' 'footer preferences'; }
+    .card > header { grid-area: header; }
+    .toolbar { grid-area: toolbar; }
+    .display { grid-area: display; }
+    .terminal { grid-area: terminal; }
+    .footer { grid-area: footer; }
+    .preferences { grid-area: preferences; border-left: 1px solid var(--border); padding-left: clamp(20px, 3vw, 40px); }
+    .theme-row { margin-top: 0; padding-top: 0; border-top: 0; }
+    .bar-picker { margin-top: 20px; flex-wrap: wrap; }
+    .bar-picker select { max-width: 100%; }
+    .settings-row { flex-wrap: wrap; }
+  }
 </style>
 </head>
 <body>
@@ -103,6 +168,7 @@
         <button id="resetBtn" title="Reset current session">Reset</button>
       </div>
     </div>
+    <div class="preferences">
     <div class="theme-row">
       <label class="theme-picker" for="theme">Theme <select id="theme"><option>Midnight</option><option>Paper</option><option>Forest</option></select></label>
       <button class="quiet" id="settingsBtn" aria-expanded="false" aria-controls="settings">Settings</button>
@@ -118,7 +184,29 @@
       <div class="settings-row"><label for="sessionMin">Session length (minutes)</label><input type="number" id="sessionMin" min="5" max="60" step="1" value="25"></div>
       <div class="settings-row"><label for="dailySessions">Daily sessions</label><input type="number" id="dailySessions" min="1" max="20" step="1" value="5"></div>
       <p class="hint" id="settingsHint">Changing the plan starts a fresh daily goal.</p>
+      <div class="settings-row"><span>Start sound</span><button id="testStartChimeBtn" type="button">Test start</button></div>
+      <div class="settings-row"><span>End sound</span><button id="testChimeBtn" type="button">Test end</button></div>
     </section>
+    <p id="soundStatus" class="hint" role="status" hidden></p>
+    <section class="scratchpad" aria-label="Notes and reminders">
+      <div class="scratch-tabs" role="tablist" aria-label="Notes and reminders">
+        <button id="notesTab" role="tab" aria-selected="true" aria-controls="notesPanel">Notes</button>
+        <button id="remindersTab" role="tab" aria-selected="false" aria-controls="remindersPanel" tabindex="-1">Reminders</button>
+      </div>
+      <div id="notesPanel" role="tabpanel" aria-labelledby="notesTab">
+        <textarea id="notesInput" class="notes-input" aria-label="Study notes" maxlength="20000" placeholder="A thought, a question, your next step…"></textarea>
+      </div>
+      <div id="remindersPanel" role="tabpanel" aria-labelledby="remindersTab" hidden>
+        <form id="reminderForm" class="reminder-form">
+          <input id="reminderInput" aria-label="New reminder" maxlength="300" placeholder="Remember to…" autocomplete="off" required>
+          <button type="submit">Add</button>
+        </form>
+        <ul id="reminderList" class="reminder-list" aria-label="Reminder checklist"></ul>
+        <p id="remindersEmpty" class="reminders-empty">Keep a small checklist for your session.</p>
+      </div>
+      <p id="scratchStatus" class="save-status" role="status">Saved in this browser</p>
+    </section>
+    </div>
   </section>
   <p class="hint keyboard-hint"><kbd>Space</kbd> to start or pause · One session at a time.</p>
 </main>
@@ -138,6 +226,41 @@
   let use24Hour = true;
   let deadline = 0;
   let intervalId = null;
+  const CHIME_LEAD_SECS = 10;
+  const CHIME_SOURCES = {
+    start: 'start-chime.wav',
+    end: 'freesound_community-timer-with-chime-101253.mp3',
+  };
+  let endChimePlayed = false;
+  const sessionChime = new Audio(CHIME_SOURCES.end);
+  sessionChime.preload = 'auto';
+  let chimeVersion = 0;
+
+  function stopChime() {
+    chimeVersion++;
+    sessionChime.pause();
+    sessionChime.currentTime = 0;
+  }
+  function playChime(kind = 'end') {
+    stopChime();
+    const version = chimeVersion;
+    const source = new URL(CHIME_SOURCES[kind], document.baseURI).href;
+    if (sessionChime.src !== source) sessionChime.src = source;
+    $('soundStatus').hidden = true;
+    // Start playback directly in the Start/Test click so the browser permits audio.
+    try {
+      Promise.resolve(sessionChime.play()).catch(error => {
+        if (version !== chimeVersion) return;
+        $('soundStatus').textContent = error.name === 'NotAllowedError'
+          ? 'Sound was blocked. Allow sound for this tab, then test the sounds in Settings.'
+          : 'Could not play the chime. Keep start-chime.wav and the MP3 beside focus.html, then test the sounds in Settings.';
+        $('soundStatus').hidden = false;
+      });
+    } catch {
+      $('soundStatus').textContent = 'Sound is unavailable. Check tab sound permissions and the audio files beside focus.html.';
+      $('soundStatus').hidden = false;
+    }
+  }
 
   try {
     const prefs = JSON.parse(localStorage.getItem('focus.preferences')) || {};
@@ -147,6 +270,94 @@
   } catch { /* The clock also works when browser storage is unavailable. */ }
   document.documentElement.dataset.theme = $('theme').value;
   $('progressStyle').value = progressStyle;
+
+  let reminders = [];
+  let savedNotes = '';
+  try {
+    const saved = JSON.parse(localStorage.getItem('focus.scratchpad'));
+    if (saved && typeof saved === 'object') {
+      if (typeof saved.notes === 'string') savedNotes = saved.notes.slice(0, 20000);
+      if (Array.isArray(saved.reminders)) {
+        reminders = saved.reminders.filter(item => item && typeof item.text === 'string' && item.text.trim())
+          .slice(0, 100).map(item => ({ text: item.text.slice(0, 300), done: item.done === true }));
+      }
+    }
+  } catch {
+    $('scratchStatus').textContent = 'Storage unavailable or unreadable; changes will retry saving.';
+  }
+  $('notesInput').value = savedNotes;
+
+  function saveScratchpad() {
+    try {
+      localStorage.setItem('focus.scratchpad', JSON.stringify({ notes: $('notesInput').value, reminders }));
+      $('scratchStatus').textContent = 'Saved in this browser';
+    } catch {
+      $('scratchStatus').textContent = 'Could not save. Keep this tab open to retain your changes.';
+    }
+  }
+  function showScratchTab(tab, focus = false) {
+    for (const name of ['notes', 'reminders']) {
+      const active = name === tab;
+      $(name + 'Tab').setAttribute('aria-selected', String(active));
+      $(name + 'Tab').tabIndex = active ? 0 : -1;
+      $(name + 'Panel').hidden = !active;
+    }
+    if (focus) $(tab + 'Tab').focus();
+  }
+  function renderReminders() {
+    $('reminderList').replaceChildren(...reminders.map((reminder, index) => {
+      const item = document.createElement('li');
+      item.className = 'reminder-item';
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = reminder.done;
+      const text = document.createElement('span');
+      text.textContent = reminder.text;
+      checkbox.addEventListener('change', () => { reminder.done = checkbox.checked; saveScratchpad(); });
+      label.append(checkbox, text);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-reminder';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', 'Delete reminder: ' + reminder.text);
+      remove.addEventListener('click', () => {
+        reminders.splice(index, 1);
+        renderReminders();
+        saveScratchpad();
+        const buttons = $('reminderList').querySelectorAll('button');
+        (buttons[Math.min(index, buttons.length - 1)] || $('reminderInput')).focus();
+      });
+      item.append(label, remove);
+      return item;
+    }));
+    $('remindersEmpty').hidden = reminders.length > 0;
+  }
+  $('notesInput').addEventListener('input', saveScratchpad);
+  for (const tab of ['notes', 'reminders']) {
+    $(tab + 'Tab').addEventListener('click', () => showScratchTab(tab));
+    $(tab + 'Tab').addEventListener('keydown', event => {
+      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        showScratchTab(event.key === 'Home' ? 'notes' : event.key === 'End' ? 'reminders' : tab === 'notes' ? 'reminders' : 'notes', true);
+      }
+    });
+  }
+  $('reminderForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const text = $('reminderInput').value.trim();
+    if (!text) return;
+    if (reminders.length >= 100) {
+      $('scratchStatus').textContent = 'Your checklist is full. Delete a reminder before adding another.';
+      return;
+    }
+    reminders.push({ text, done: false });
+    $('reminderInput').value = '';
+    renderReminders();
+    saveScratchpad();
+    $('reminderInput').focus();
+  });
+  renderReminders();
 
   function savePreferences() {
     try { localStorage.setItem('focus.preferences', JSON.stringify({ theme: $('theme').value, use24Hour, progressStyle })); } catch {}
@@ -167,6 +378,17 @@
     const fraction = Math.max(0, Math.min(1, totalSeconds ? (totalSeconds - secondsLeft) / totalSeconds : 0));
     const percent = Math.floor(fraction * 100);
     const status = ({ idle: 'READY', running: 'STUDYING', paused: 'PAUSED', completed: 'DONE' })[state];
+    const tabCells = 8;
+    const tabFilled = Math.floor(fraction * tabCells);
+    let tabBar = '█'.repeat(tabFilled) + '░'.repeat(tabCells - tabFilled);
+    if (progressStyle === 'ASCII') {
+      tabBar = '='.repeat(tabFilled) + (tabFilled < tabCells ? '>' + '-'.repeat(tabCells - tabFilled - 1) : '');
+    } else if (progressStyle === 'Segments') {
+      tabBar = '▰'.repeat(tabFilled) + '▱'.repeat(tabCells - tabFilled);
+    }
+    const tabStatus = state === 'paused' ? 'Paused' : state === 'completed' ? 'Done' : 'Focus';
+    const tabTitle = `[${tabBar}] ${percent}% · ${tabStatus}`;
+    if (document.title !== tabTitle) document.title = tabTitle;
     $('progress').dataset.style = progressStyle;
     $('progress').setAttribute('aria-valuenow', String(percent));
     $('progress').setAttribute('aria-valuetext', `${percent}% · ${status.toLowerCase()} · ${fmtMS(secondsLeft)} remaining`);
@@ -219,11 +441,14 @@
     $('sessionMin').disabled = locked;
     $('dailySessions').disabled = locked;
     $('settingsHint').textContent = locked ? 'Reset the timer to change your plan.' : 'Changing the plan starts a fresh daily goal.';
-    document.title = state === 'running' ? `${fmtMS(secondsLeft)} · Focus` : 'Focus — Study clock';
   }
   function tick() {
     if (state !== 'running') return;
     secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    if (secondsLeft <= CHIME_LEAD_SECS && !endChimePlayed) {
+      endChimePlayed = true;
+      playChime('end');
+    }
     if (secondsLeft === 0) {
       clearInterval(intervalId);
       intervalId = null;
@@ -234,6 +459,8 @@
   }
   function start() {
     if (state === 'running') return;
+    const newSession = state === 'idle' || state === 'completed';
+    if (newSession) endChimePlayed = false;
     if (state === 'completed') {
       if (sessionsCompleted >= dailySessions) sessionsCompleted = 0;
       secondsLeft = totalSeconds;
@@ -241,18 +468,22 @@
     state = 'running';
     deadline = Date.now() + secondsLeft * 1000;
     intervalId = setInterval(tick, 200);
+    if (newSession) playChime('start');
     render();
   }
   function pause() {
     if (state !== 'running') return;
     tick();
     if (state === 'completed') return;
+    stopChime();
     state = 'paused';
     clearInterval(intervalId);
     intervalId = null;
     render();
   }
   function reset() {
+    stopChime();
+    endChimePlayed = false;
     clearInterval(intervalId);
     intervalId = null;
     if (sessionsCompleted >= dailySessions) sessionsCompleted = 0;
@@ -273,6 +504,8 @@
     reset();
   }
   $('playBtn').addEventListener('click', togglePlay);
+  $('testStartChimeBtn').addEventListener('click', () => playChime('start'));
+  $('testChimeBtn').addEventListener('click', () => playChime('end'));
   $('resetBtn').addEventListener('click', reset);
   $('timerTab').addEventListener('click', () => setMode('timer'));
   $('clockTab').addEventListener('click', () => setMode('clock'));

@@ -15,15 +15,23 @@ Run `python study_clock.py` with Python 3 and Tkinter installed.
 - Drag the window to move it. The header controls hide to a restore pill (**Hide**), show only the progress bar (`▱`), or quit (`×`). Click the compact bar to restore.
 - Press **Space** on the main view to start or pause, or **Escape** to quit.
 
-The chime plays on Windows ten seconds before a phase ends. Keep the MP3 beside the script.
+On Windows, the short two-note start sound plays when you start a new session and when a break transitions back to focus. Resume stays silent. The original end recording begins ten seconds before each phase ends. Pause, reset, and quit stop playback. Keep `start-chime.wav` and the MP3 beside the script.
 
 ## Browser
 
 Open `focus.html`, or run `Start-Process .\focus.html` in PowerShell. No server or installation is required.
 
+The layout adapts as you resize the tab: narrow windows stack controls, short windows reduce spacing, and wide windows place preferences beside the timer. Very small windows scroll so every control remains accessible. Resizing keeps your session running.
+
 The browser version supports 5–60-minute sessions and a daily session goal. Reset before editing an active plan. Completed sessions stay visible until you choose **Next session** or **New goal**. **Hide** pauses the timer. Themes and clock format are saved when browser storage is available.
 
+New sessions start with a gentle, rising two-note cue (`start-chime.wav`, 0.8 seconds). The original MP3 starts during the final ten seconds and continues through completion. It plays once per session, including if the tab catches up after missing the countdown. Resume continues silently; pause and reset stop playback. Keep both audio files beside `focus.html`. Use **Settings → Test start / Test end** to preview each sound, and allow audio for the tab if your browser blocks it.
+
 Use the **Progress bar** selector for **Package installer**, **ASCII terminal**, or **Retro segments**. All three follow your theme and show the percentage, remaining time, and timer status. Your choice is saved when browser storage is available.
+
+The browser tab shows a compact version of your chosen progress bar and the session percentage. Pausing or finishing adds **Paused** or **Done**, so you can check progress while using another tab.
+
+**Notes / Reminders** sits below the right-side preferences (below the timer on narrow screens). Notes save as you type. Add reminders with Enter or **Add**, check them off, or delete them with **×**. These are checklist reminders, without scheduled notifications. Notes and reminders are stored in this browser, survive reloads and timer resets, and are not synced between devices. A message appears if saving fails.
 
 ## Verification
 

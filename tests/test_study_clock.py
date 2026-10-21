@@ -20,6 +20,58 @@ class StudyClockTests(unittest.TestCase):
         self.app.withdraw()
         self.app.update_idletasks()
         self.addCleanup(self.app._quit)
+        # Exercise UI/state without playing sounds for every test.
+        sound_patch = patch.object(self.app, "_play_chime")
+        self.play_chime = sound_patch.start()
+        self.addCleanup(sound_patch.stop)
+
+    def test_start_sound_on_new_focus_sessions_but_not_resume(self):
+        app = self.app
+        app._start()
+        self.play_chime.assert_called_once_with("start")
+        app._pause()
+        app._start()
+        self.play_chime.assert_called_once_with("start")
+        app._reset()
+        app._start()
+        self.assertEqual(self.play_chime.call_count, 2)
+        self.play_chime.reset_mock()
+        app._switch_phase()
+        self.assertEqual(app.current_phase, "break")
+        self.play_chime.assert_not_called()
+        app._switch_phase()
+        self.assertEqual(app.current_phase, "focus")
+        self.play_chime.assert_called_once_with("start")
+        self.play_chime.reset_mock()
+        # Cancel the scheduled callback before manually driving the countdown.
+        app.after_cancel(app.timer_id)
+        app.timer_id = None
+        app.time_left = study_clock.CHIME_LEAD_SECS + 1
+        app._tick()
+        self.play_chime.assert_called_once_with()
+        app.after_cancel(app.timer_id)
+        app.timer_id = None
+        app._tick()
+        self.play_chime.assert_called_once_with()
+
+    def test_start_wav_uses_waveaudio_and_end_mp3_uses_mpegvideo(self):
+        app = self.app
+        with patch("study_clock.ctypes.windll.winmm.mciSendStringW", return_value=0) as send:
+            # Call the real audio method rather than the per-test mute.
+            study_clock.StudyClock._play_chime(app, "start")
+            commands = [call.args[0] for call in send.call_args_list]
+            self.assertEqual(commands[0], "close chime")
+            self.assertIn(study_clock.START_CHIME_FILE, commands[1])
+            self.assertIn("type waveaudio", commands[1])
+            self.assertEqual(commands[2], "play chime from 0")
+            send.reset_mock()
+            study_clock.StudyClock._play_chime(app)
+            self.assertIn(study_clock.CHIME_FILE, send.call_args_list[1].args[0])
+            self.assertIn("type mpegvideo", send.call_args_list[1].args[0])
+            send.reset_mock()
+            app._pause()
+            app._reset()
+            self.assertIn("close chime", [call.args[0] for call in send.call_args_list])
 
     def test_clock_and_themes_preserve_running_session(self):
         app = self.app
