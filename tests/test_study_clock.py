@@ -25,15 +25,97 @@ class StudyClockTests(unittest.TestCase):
         self.play_chime = sound_patch.start()
         self.addCleanup(sound_patch.stop)
 
-    def test_start_sound_on_new_focus_sessions_but_not_resume(self):
+    def start_session(self):
+        """Fast-forward preparation in tests that exercise the running session."""
         app = self.app
         app._start()
+        if app.preparing:
+            app.after_cancel(app.preparation_id)
+            app.preparation_id = None
+            with patch("study_clock.time.monotonic", return_value=app.preparation_deadline):
+                app._preparation_tick()
+
+    def test_preparation_waits_ten_seconds_before_start_sound_and_session(self):
+        app = self.app
+        session_time = (app.time_left, app.total_left)
+        with patch("study_clock.time.monotonic", return_value=100) as now:
+            app._start()
+            self.assertTrue(app.preparing)
+            self.assertEqual(app.preparation_left, 10)
+            self.assertEqual(app.cv.itemcget(app._id_phase, "text"), "GET READY")
+            self.assertEqual(app.cv.itemcget(app._id_timer, "text"), "00:10")
+            self.assertEqual(app.cv.itemcget(app._id_play, "text"), "Cancel")
+            self.assertIsNone(app.timer_id)
+            self.play_chime.assert_not_called()
+            callback_id = app.preparation_id
+            app._start()
+            self.assertEqual(app.preparation_id, callback_id)
+            for elapsed, expected in ((1, 9), (5, 5), (9.9, 1), (10, 0)):
+                app.after_cancel(app.preparation_id)
+                app.preparation_id = None
+                now.return_value = 100 + elapsed
+                app._preparation_tick()
+                self.assertEqual(app.preparation_left, expected)
+                self.assertEqual((app.time_left, app.total_left), session_time)
+                if expected:
+                    self.assertTrue(app.preparing)
+                    self.assertIsNone(app.timer_id)
+                    self.play_chime.assert_not_called()
+            self.assertFalse(app.preparing)
+            self.assertIsNone(app.preparation_id)
+            self.assertEqual(app.state, "running")
+            self.assertIsNotNone(app.timer_id)
+            self.play_chime.assert_called_once_with("start")
+            app._pause()
+            app._start()
+            self.assertFalse(app.preparing)
+            self.assertEqual(app.state, "running")
+            self.play_chime.assert_called_once_with("start")
+
+    def test_preparation_customization_compact_and_cancellation(self):
+        app = self.app
+        with patch("study_clock.time.monotonic", return_value=100):
+            app._start()
+            deadline, callback_id = app.preparation_deadline, app.preparation_id
+            app._open_settings()
+            self.assertEqual(app._sh_entry.cget("state"), "disabled")
+            app._sh_var.set("3")
+            app._commit_settings()
+            self.assertEqual(app.study_hours, 1)
+            app._set_theme("Forest")
+            self.assertEqual(app.preparation_deadline, deadline)
+            self.assertEqual(app.preparation_id, callback_id)
+            app._enter_compact()
+            self.assertIn("10s to start", app.cv.itemcget(app.cv.find_withtag("bar_remaining")[0], "text"))
+            app._exit_compact()
+            app._toggle_play()
+            self.assertFalse(app.preparing)
+            self.assertIsNone(app.preparation_id)
+            self.assertEqual(app.state, "idle")
+            app._preparation_tick()
+            self.play_chime.assert_not_called()
+            app._start()
+            self.assertEqual(app.preparation_left, 10)
+            app._reset()
+            self.assertFalse(app.preparing)
+            app._start()
+            app._minimize()
+            self.assertFalse(app.preparing)
+            self.assertIsNone(app.preparation_id)
+            self.assertEqual(app.state, "idle")
+            app._revive_main()
+            app.withdraw()
+            self.play_chime.assert_not_called()
+
+    def test_start_sound_on_new_focus_sessions_but_not_resume(self):
+        app = self.app
+        self.start_session()
         self.play_chime.assert_called_once_with("start")
         app._pause()
-        app._start()
+        self.start_session()
         self.play_chime.assert_called_once_with("start")
         app._reset()
-        app._start()
+        self.start_session()
         self.assertEqual(self.play_chime.call_count, 2)
         self.play_chime.reset_mock()
         app._switch_phase()
@@ -75,7 +157,7 @@ class StudyClockTests(unittest.TestCase):
 
     def test_clock_and_themes_preserve_running_session(self):
         app = self.app
-        app._start()
+        self.start_session()
         timer_id, remaining = app.timer_id, app.time_left
         app._set_view("clock")
         for theme in study_clock.THEMES:
@@ -103,7 +185,7 @@ class StudyClockTests(unittest.TestCase):
         app._set_theme("Paper")
         self.assertTrue(app.settings_open)
         self.assertEqual(app._sh_entry.cget("bg"), study_clock.THEMES["Paper"]["surface"])
-        app._start()
+        self.start_session()
         self.assertFalse(app.settings_open)
         app._toggle_settings()
         self.assertTrue(app.settings_open)
@@ -154,9 +236,25 @@ class StudyClockTests(unittest.TestCase):
         app._exit_compact()
         self.assertEqual(app._hit_button(170, 330), "btn_play")
 
+    def test_native_window_dimensions_stay_unchanged(self):
+        app = self.app
+        app.deiconify()
+        app.update()
+        self.assertEqual((app.winfo_width(), app.winfo_height()), (440, 424))
+        app._open_settings()
+        app.update()
+        self.assertEqual((app.winfo_width(), app.winfo_height()), (440, 424))
+        app._enter_compact()
+        app.update()
+        self.assertEqual((app.winfo_width(), app.winfo_height()), (440, 38))
+        app._exit_compact()
+        app.update()
+        self.assertEqual((app.winfo_width(), app.winfo_height()), (440, 424))
+        app.withdraw()
+
     def test_progress_styles_preserve_session_and_fit_compact_view(self):
         app = self.app
-        app._start()
+        self.start_session()
         app.time_left = 1914  # 42% of the 55-minute focus phase elapsed.
         timer_id = app.timer_id
         for style in study_clock.PROGRESS_STYLES:
@@ -240,7 +338,7 @@ class StudyClockTests(unittest.TestCase):
         app = self.app
         self.assertFalse(app.cv.find_withtag("btn_theme"))
         self.assertFalse(app.cv.find_withtag("btn_format"))
-        app._start()
+        self.start_session()
         remaining, timer_id = app.time_left, app.timer_id
         app._toggle_settings()
         self.assertTrue(app.settings_open)
@@ -285,7 +383,7 @@ class StudyClockTests(unittest.TestCase):
 
     def test_minimize_and_revive(self):
         app = self.app
-        app._start()
+        self.start_session()
         app._minimize()
         self.assertEqual(app.state, "paused")
         self.assertIsNotNone(app._revive_win)

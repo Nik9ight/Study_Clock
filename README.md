@@ -6,12 +6,15 @@ A small study timer with Midnight, Paper, and Forest themes and a live local clo
 
 Run `python study_clock.py` with Python 3 and Tkinter installed.
 
+Windows DPI awareness is enabled before the window opens to avoid blurry bitmap scaling. The interface remains 440 × 424 pixels, or 440 × 38 in compact mode; text and layout sizes are unchanged.
+
 - Choose **Timer** or **Clock**. Switching views keeps the timer running.
 - Open **Customize** for themes, progress-bar styles, and the **24 hour / 12 hour** clock format. Appearance choices are saved locally and can change during a session.
 - Choose **Package installer**, **ASCII terminal**, or **Retro segments** in the panel's **Progress bar** menu. The style also applies in compact mode.
 - The **Session** section in Customize offers 1–3 study hours and a 5, 10, or 15-minute break each hour. Reset before editing an active plan.
 - Use **Done** or **Escape** to return from Customize to the timer.
 - **Start / Pause / Resume** controls the timer; **Reset** restarts the session.
+- **Start** shows a 10-second **Get ready** countdown, then begins the session with the start chime. Preparation does not use study time. **Cancel**, **Reset**, or **Hide** cancels preparation. Resume starts immediately without a new countdown.
 - Drag the window to move it. The header controls hide to a restore pill (**Hide**), show only the progress bar (`▱`), or quit (`×`). Click the compact bar to restore.
 - Press **Space** on the main view to start or pause, or **Escape** to quit.
 

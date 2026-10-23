@@ -1,6 +1,8 @@
 import ctypes
 import json
+import math
 import os
+import time
 import tkinter as tk
 from tkinter import font as tkfont
 from datetime import datetime
@@ -9,6 +11,7 @@ from pathlib import Path
 CHIME_FILE = "freesound_community-timer-with-chime-101253.mp3"
 START_CHIME_FILE = "start-chime.wav"
 CHIME_LEAD_SECS = 10
+PREPARATION_SECS = 10
 
 W = 440
 H_BASE = 424
@@ -37,6 +40,28 @@ FONT_TIMER   = ("Consolas", -64)
 FONT_SMALL   = ("Segoe UI", -13)
 
 
+def enable_high_dpi():
+    """Render at native monitor pixels instead of Windows bitmap scaling."""
+    if os.name != "nt":
+        return
+    try:
+        set_context = ctypes.windll.user32.SetProcessDpiAwarenessContext
+        set_context.argtypes = [ctypes.c_void_p]
+        set_context.restype = ctypes.c_int
+        if set_context(ctypes.c_void_p(-4)):  # Per-monitor awareness V2.
+            return
+    except (AttributeError, OSError):
+        pass
+    try:
+        # Older Windows versions, or a host that already selected its DPI mode.
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
+
+
 def fmt_ms(s):
     s = max(0, int(s))
     return f"{s // 60:02d}:{s % 60:02d}"
@@ -49,6 +74,8 @@ def fmt_hms(s):
 
 class StudyClock(tk.Tk):
     def __init__(self):
+        # DPI awareness must be set before Tk creates any native windows.
+        enable_high_dpi()
         super().__init__()
         self.overrideredirect(True)
         self.attributes("-topmost", True)
@@ -72,6 +99,9 @@ class StudyClock(tk.Tk):
         self.time_left     = self.phase_total
         self.total_left    = self.study_hours * 3600
         self.timer_id      = None
+        self.preparation_id = None
+        self.preparation_deadline = None
+        self.preparation_left = 0
         self.flash_id      = None
         self.flash_count   = 0
 
@@ -157,6 +187,10 @@ class StudyClock(tk.Tk):
     def _set_view(self, mode):
         self.view_mode = mode
         self._render()
+
+    @property
+    def preparing(self):
+        return self.preparation_deadline is not None
 
     def _set_progress_style(self, style):
         if style not in PROGRESS_STYLES:
@@ -257,15 +291,20 @@ class StudyClock(tk.Tk):
                  "paused": "PAUSED"}.get(
             self.state,
             "FOCUS TIME" if self.current_phase == "focus" else "TAKE A BREAK")
+        if self.preparing:
+            label = "GET READY"
         now = datetime.now()
-        clock_mode = self.view_mode == "clock"
+        clock_mode = self.view_mode == "clock" and not self.preparing
         clock_text = now.strftime("%H:%M:%S" if self.use_24_hour else "%I:%M:%S")
         cv.itemconfig(self._id_phase, text="LOCAL TIME" if clock_mode else label)
-        cv.itemconfig(self._id_timer, text=clock_text if clock_mode else fmt_ms(self.time_left),
+        timer_text = fmt_ms(self.preparation_left if self.preparing else self.time_left)
+        cv.itemconfig(self._id_timer, text=clock_text if clock_mode else timer_text,
                       font=("Consolas", -52 if clock_mode else -64))
         detail = (now.strftime("%A, %d %B") + ("" if self.use_24_hour else now.strftime(" · %p"))
                   if clock_mode else f"{self.study_hours}h session  ·  {self.break_mins}m breaks")
         cv.itemconfig(self._id_detail, text=detail)
+        if self.preparing:
+            cv.itemconfig(self._id_detail, text="Your session starts after the countdown")
         for tag, tab, active in (("btn_timer", self._timer_tab, not clock_mode),
                                 ("btn_clock", self._clock_tab, clock_mode)):
             cv.itemconfig(tab, fill=self.colors["accent"] if active else self.colors["dim"])
@@ -275,14 +314,14 @@ class StudyClock(tk.Tk):
         self._render_progress()
 
         cv.itemconfig(self._id_play,
-                      text={"running": "Pause", "paused": "Resume",
+                      text="Cancel" if self.preparing else {"running": "Pause", "paused": "Resume",
                             "completed": "Done"}.get(self.state, "Start"))
         if self.settings_open:
             cv.itemconfig(self._theme_btn, text=self.theme_name + "  ▾")
             style_label = {"Installer": "Package installer", "ASCII": "ASCII terminal", "Segments": "Retro segments"}
             cv.itemconfig(self._style_btn, text=style_label[self.progress_style] + "  ▾")
             cv.itemconfig(self._format_btn, text="24 hour" if self.use_24_hour else "12 hour")
-            editable = self.state in ("idle", "completed")
+            editable = self.state in ("idle", "completed") and not self.preparing
             for entry in (self._sh_entry, self._bm_entry):
                 entry.configure(state="normal" if editable else "disabled")
             cv.itemconfig("settings_hint", text="Hours: 1–3 · Break: 5, 10 or 15 minutes"
@@ -304,15 +343,21 @@ class StudyClock(tk.Tk):
         font = ("Consolas", -12)
         status = {"idle": "READY", "paused": "PAUSED", "completed": "DONE"}.get(
             self.state, "BREAK" if self.current_phase == "break" else "STUDYING")
+        if self.preparing:
+            status = "GET READY"
         cv.create_text(x1, 28 if self.compact_open else 282,
                        text=f"{percent}%", font=font, fill=c["accent"], anchor="e", tags=("bar", "bar_percent"))
         remaining = self.study_hours * 3600 if self.state == "idle" else max(0, self.total_left)
         meta = (status if self.compact_open
                 else f"Session left {fmt_hms(remaining)}")
+        if self.preparing and not self.compact_open:
+            meta = f"Starting in {self.preparation_left}s"
         cv.create_text(x0, 28 if self.compact_open else 282, text=meta,
                        font=font, fill=c["dim"], anchor="w", tags=("bar", "bar_status"))
         if self.compact_open:
-            cv.create_text(W // 2, 28, text=f"{fmt_ms(self.time_left)} left",
+            compact_time = (f"{self.preparation_left}s to start" if self.preparing
+                            else f"{fmt_ms(self.time_left)} left")
+            cv.create_text(W // 2, 28, text=compact_time,
                            font=font, fill=c["fg"], tags=("bar", "bar_remaining"))
         if self.progress_style == "Installer":
             count = self._bar_cell_count(28)
@@ -412,6 +457,7 @@ class StudyClock(tk.Tk):
         return None
 
     def _quit(self):
+        self._cancel_preparation()
         if self.clock_id:
             self.after_cancel(self.clock_id)
             self.clock_id = None
@@ -452,24 +498,53 @@ class StudyClock(tk.Tk):
     # ── Timer state machine ──────────────────────────────────────────────────
 
     def _toggle_play(self):
-        if self.state == "running":
+        if self.preparing:
+            self._reset()
+        elif self.state == "running":
             self._pause()
         else:
             self._start()
 
     def _start(self):
-        if self.state == "completed":
+        if self.state in ("completed", "running") or self.preparing:
             return
-        new_session = self.state == "idle"
         if self.settings_open:
             self._close_settings()
         if self.state == "idle":
             self._init_session()
+            self.view_mode = "timer"
+            self.preparation_left = PREPARATION_SECS
+            self.preparation_deadline = time.monotonic() + PREPARATION_SECS
+            self.preparation_id = self.after(100, self._preparation_tick)
+            self._render()
+            return
+        self._begin_session()
+
+    def _preparation_tick(self):
+        self.preparation_id = None
+        if not self.preparing:
+            return
+        self.preparation_left = max(0, math.ceil(self.preparation_deadline - time.monotonic()))
+        if self.preparation_left == 0:
+            self.preparation_deadline = None
+            self._begin_session(play_start=True)
+            return
+        self._render()
+        self.preparation_id = self.after(100, self._preparation_tick)
+
+    def _cancel_preparation(self):
+        if self.preparation_id is not None:
+            self.after_cancel(self.preparation_id)
+            self.preparation_id = None
+        self.preparation_deadline = None
+        self.preparation_left = 0
+
+    def _begin_session(self, play_start=False):
         self.state = "running"
         if self.timer_id:
             self.after_cancel(self.timer_id)
         self.timer_id = self.after(1000, self._tick)
-        if new_session:
+        if play_start:
             self._play_chime("start")
         self._render()
 
@@ -490,6 +565,7 @@ class StudyClock(tk.Tk):
         self._render()
 
     def _reset(self):
+        self._cancel_preparation()
         self.state = "idle"
         if self.timer_id:
             self.after_cancel(self.timer_id)
@@ -659,7 +735,7 @@ class StudyClock(tk.Tk):
         self._render()
 
     def _commit_settings(self):
-        if self.state not in ("idle", "completed"):
+        if self.state not in ("idle", "completed") or self.preparing:
             return
         sh_var, bm_var = self._sh_var, self._bm_var
         if sh_var is None or bm_var is None:
@@ -693,6 +769,8 @@ class StudyClock(tk.Tk):
     # ── Minimize / revive ────────────────────────────────────────────────────
 
     def _minimize(self):
+        if self.preparing:
+            self._reset()
         if self.state == "running":
             self._pause()
         if self.settings_open:
