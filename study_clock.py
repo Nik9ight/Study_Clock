@@ -12,6 +12,7 @@ CHIME_FILE = "freesound_community-timer-with-chime-101253.mp3"
 START_CHIME_FILE = "start-chime.wav"
 CHIME_LEAD_SECS = 10
 PREPARATION_SECS = 10
+BREAK_COUNT_OPTIONS = (1, 2, 3)
 
 W = 440
 H_BASE = 424
@@ -91,13 +92,11 @@ class StudyClock(tk.Tk):
         # Settings
         self.study_hours = 1    # 1, 2, or 3
         self.break_mins  = 5    # 5, 10, or 15
+        self.break_count = 1    # 1, 2, or 3 evenly spaced breaks
 
         # Timer state
         self.state         = "idle"   # idle | running | paused | completed
-        self.current_phase = "focus"  # focus | break
-        self.phase_total   = self._focus_secs()
-        self.time_left     = self.phase_total
-        self.total_left    = self.study_hours * 3600
+        self._init_session()
         self.timer_id      = None
         self.preparation_id = None
         self.preparation_deadline = None
@@ -199,6 +198,15 @@ class StudyClock(tk.Tk):
         self._render()
         self._save_preferences()
 
+    def _set_break_count(self, count):
+        if count not in BREAK_COUNT_OPTIONS or self.state not in ("idle", "completed") or self.preparing:
+            return
+        self._commit_settings()
+        self.break_count = count
+        if self.state == "idle":
+            self._init_session()
+        self._render()
+
     def _set_theme(self, name):
         reopen_settings = self.settings_open
         if reopen_settings:
@@ -218,11 +226,19 @@ class StudyClock(tk.Tk):
 
     # ── Derived durations ────────────────────────────────────────────────────
 
-    def _focus_secs(self):
-        return (60 - self.break_mins) * 60
-
     def _break_secs(self):
         return self.break_mins * 60
+
+    def _build_phase_plan(self):
+        """Spread focus evenly around a fixed number of breaks within the plan."""
+        focus_total = self.study_hours * 3600 - self.break_count * self._break_secs()
+        focus_secs, extra_seconds = divmod(focus_total, self.break_count + 1)
+        plan = []
+        for index in range(self.break_count + 1):
+            plan.append(("focus", focus_secs + (index < extra_seconds)))
+            if index < self.break_count:
+                plan.append(("break", self._break_secs()))
+        return plan
 
     # ── Build static layout ──────────────────────────────────────────────────
 
@@ -273,6 +289,7 @@ class StudyClock(tk.Tk):
                        font=FONT_SMALL, bd=0)
         self._choice_menu = menu
         labels = {"Installer": "Package installer", "ASCII": "ASCII terminal", "Segments": "Retro segments"}
+        labels.update({count: f"{count} break{'s' if count != 1 else ''}" for count in BREAK_COUNT_OPTIONS})
         for choice in choices:
             menu.add_command(label=("✓  " if choice == selected else "    ") + labels.get(choice, choice),
                              command=lambda value=choice: callback(value))
@@ -301,7 +318,7 @@ class StudyClock(tk.Tk):
         cv.itemconfig(self._id_timer, text=clock_text if clock_mode else timer_text,
                       font=("Consolas", -52 if clock_mode else -64))
         detail = (now.strftime("%A, %d %B") + ("" if self.use_24_hour else now.strftime(" · %p"))
-                  if clock_mode else f"{self.study_hours}h session  ·  {self.break_mins}m breaks")
+                  if clock_mode else f"{self.study_hours}h plan · {self.break_count} × {self.break_mins}m break{'s' if self.break_count != 1 else ''}")
         cv.itemconfig(self._id_detail, text=detail)
         if self.preparing:
             cv.itemconfig(self._id_detail, text="Your session starts after the countdown")
@@ -324,7 +341,9 @@ class StudyClock(tk.Tk):
             editable = self.state in ("idle", "completed") and not self.preparing
             for entry in (self._sh_entry, self._bm_entry):
                 entry.configure(state="normal" if editable else "disabled")
-            cv.itemconfig("settings_hint", text="Hours: 1–3 · Break: 5, 10 or 15 minutes"
+            cv.itemconfig(self._count_btn, text=f"{self.break_count}  ▾",
+                          fill=self.colors["fg"] if editable else self.colors["dim"])
+            cv.itemconfig("settings_hint", text=f"{self.break_count} evenly spaced break{'s' if self.break_count != 1 else ''} · Ends in focus"
                           if editable else "Reset the timer to change your plan.")
 
     def _render_progress(self):
@@ -442,6 +461,8 @@ class StudyClock(tk.Tk):
             self._show_choice_menu(tag, THEMES, self.theme_name, self._set_theme)
         elif tag == "btn_style":
             self._show_choice_menu(tag, PROGRESS_STYLES, self.progress_style, self._set_progress_style)
+        elif tag == "btn_break_count" and self.state in ("idle", "completed") and not self.preparing:
+            self._show_choice_menu(tag, BREAK_COUNT_OPTIONS, self.break_count, self._set_break_count)
 
     def _on_right_release(self, e):
         if self._hit_button(e.x, e.y) == "btn_cls":
@@ -549,8 +570,9 @@ class StudyClock(tk.Tk):
         self._render()
 
     def _init_session(self):
-        self.current_phase = "focus"
-        self.phase_total   = self._focus_secs()
+        self.phase_plan = self._build_phase_plan()
+        self.phase_index = 0
+        self.current_phase, self.phase_total = self.phase_plan[0]
         self.time_left     = self.phase_total
         self.total_left    = self.study_hours * 3600
 
@@ -575,10 +597,7 @@ class StudyClock(tk.Tk):
             self.flash_id = None
         self._stop_chime()
         self.cv.itemconfig(self._id_timer, fill=self.colors["fg"])
-        self.current_phase = "focus"
-        self.phase_total   = self._focus_secs()
-        self.time_left     = self.phase_total
-        self.total_left    = self.study_hours * 3600
+        self._init_session()
         self._render()
 
     def _tick(self):
@@ -610,12 +629,11 @@ class StudyClock(tk.Tk):
         self.timer_id = self.after(1000, self._tick)
 
     def _switch_phase(self):
+        if self.phase_index + 1 >= len(self.phase_plan):
+            return
+        self.phase_index += 1
+        self.current_phase, self.phase_total = self.phase_plan[self.phase_index]
         if self.current_phase == "focus":
-            self.current_phase = "break"
-            self.phase_total   = self._break_secs()
-        else:
-            self.current_phase = "focus"
-            self.phase_total   = self._focus_secs()
             self._play_chime("start")
         self.time_left = self.phase_total
 
@@ -692,11 +710,15 @@ class StudyClock(tk.Tk):
         cv.create_line(PAD_X, 248, W - PAD_X, 248, fill=self.colors["border"], tags="settings")
         cv.create_text(PAD_X, 272, text="SESSION", font=FONT_LABEL,
                        fill=self.colors["dim"], anchor="w", tags="settings")
-        cv.create_text(PAD_X, 306, text="Study hours",
+        cv.create_text(PAD_X, 296, text="Session hours",
                        font=FONT_SMALL, fill=self.colors["dim"], anchor="w", tags="settings")
-        cv.create_text(PAD_X, 346, text="Break minutes",
+        cv.create_text(PAD_X, 332, text="Break minutes",
                        font=FONT_SMALL, fill=self.colors["dim"], anchor="w", tags="settings")
-        cv.create_text(PAD_X, 392, font=("Segoe UI", -12), fill=self.colors["dim"],
+        cv.create_text(PAD_X, 368, text="Number of breaks",
+                       font=FONT_SMALL, fill=self.colors["dim"], anchor="w", tags="settings")
+        self._count_btn = self._button("btn_break_count", W - PAD_X - 80, 353, 80, 30,
+                                       "", group="settings")
+        cv.create_text(PAD_X, 404, font=("Segoe UI", -12), fill=self.colors["dim"],
                        anchor="w", tags=("settings", "settings_hint"))
 
         self._sh_var = tk.StringVar(value=str(self.study_hours))
@@ -713,9 +735,9 @@ class StudyClock(tk.Tk):
             entry.bind("<FocusOut>", self._apply_settings)
             entry.bind("<Return>",   self._apply_settings)
 
-        cv.create_window(W - PAD_X, 306, anchor="e",
+        cv.create_window(W - PAD_X, 296, anchor="e",
                          window=self._sh_entry, height=30, width=80, tags="settings")
-        cv.create_window(W - PAD_X, 346, anchor="e",
+        cv.create_window(W - PAD_X, 332, anchor="e",
                          window=self._bm_entry, height=30, width=80, tags="settings")
         self._render()
 
@@ -757,10 +779,7 @@ class StudyClock(tk.Tk):
         self.break_mins = bm
 
         if self.state == "idle":
-            self.current_phase = "focus"
-            self.phase_total   = self._focus_secs()
-            self.time_left     = self.phase_total
-            self.total_left    = self.study_hours * 3600
+            self._init_session()
 
     def _apply_settings(self, _e=None):
         self._commit_settings()

@@ -173,7 +173,7 @@ class StudyClockTests(unittest.TestCase):
         self.assertIsNone(app.timer_id)
         self.assertEqual(app.cv.itemcget(app._id_play, "text"), "Resume")
         app._reset()
-        self.assertEqual(app.time_left, 55 * 60)
+        self.assertEqual(app.time_left, 27 * 60 + 30)
 
     def test_settings_validation_and_theme_refresh(self):
         app = self.app
@@ -208,6 +208,8 @@ class StudyClockTests(unittest.TestCase):
         app.timer_id = None
         app._set_view("clock")
         app._enter_compact()
+        app.phase_index = len(app.phase_plan) - 1
+        app.current_phase, app.phase_total = app.phase_plan[-1]
         app.time_left = app.total_left = 1
         app._tick()
         self.assertEqual(app.state, "completed")
@@ -255,11 +257,11 @@ class StudyClockTests(unittest.TestCase):
     def test_progress_styles_preserve_session_and_fit_compact_view(self):
         app = self.app
         self.start_session()
-        app.time_left = 1914  # 42% of the 55-minute focus phase elapsed.
+        app.time_left = 957  # 42% of the 27:30 focus phase elapsed.
         timer_id = app.timer_id
         for style in study_clock.PROGRESS_STYLES:
             app._set_progress_style(style)
-            self.assertEqual((app.time_left, app.timer_id, app.state), (1914, timer_id, "running"))
+            self.assertEqual((app.time_left, app.timer_id, app.state), (957, timer_id, "running"))
             percent = app.cv.find_withtag("bar_percent")[0]
             self.assertEqual(app.cv.itemcget(percent, "text"), "42%")
             for compact in (True, False):
@@ -347,7 +349,7 @@ class StudyClockTests(unittest.TestCase):
         self.assertEqual(app.cv.itemcget(app._id_play, "state"), "hidden")
         self.assertIsNone(app._hit_button(170, 330))
         self.assertEqual(app._sh_entry.cget("state"), "disabled")
-        for tag in ("btn_theme", "btn_style", "btn_format", "btn_done"):
+        for tag in ("btn_theme", "btn_style", "btn_format", "btn_break_count", "btn_done"):
             shape, text = app.cv.find_withtag(tag)
             x0, y0, x1, y1 = app.cv.bbox(shape)
             self.assertEqual(app._hit_button((x0 + x1) / 2, (y0 + y1) / 2), tag)
@@ -380,6 +382,90 @@ class StudyClockTests(unittest.TestCase):
         self.prefs.write_text('{"progress_style": "unknown"}')
         app._load_preferences()
         self.assertEqual(app.progress_style, "Installer")
+
+    def test_default_pomodoro_plan_keeps_break_between_focus_blocks(self):
+        self.assertEqual(self.app.phase_plan, [("focus", 1650), ("break", 300), ("focus", 1650)])
+
+    def test_two_hour_plan_with_one_ten_minute_break(self):
+        app = self.app
+        app.study_hours, app.break_mins, app.break_count = 2, 10, 1
+        app._init_session()
+        self.assertEqual(app.phase_plan, [("focus", 3300), ("break", 600), ("focus", 3300)])
+
+    def test_break_count_menu_uses_presets_and_is_locked_during_sessions(self):
+        app = self.app
+        app._open_settings()
+        with patch("tkinter.Menu.tk_popup"):
+            app._show_choice_menu("btn_break_count", study_clock.BREAK_COUNT_OPTIONS,
+                                  app.break_count, app._set_break_count)
+        menu = app._choice_menu
+        self.assertEqual([menu.entrycget(i, "label").strip().lstrip("✓ ") for i in range(3)],
+                         ["1 break", "2 breaks", "3 breaks"])
+        menu.invoke(1)
+        menu.unpost()
+        self.assertEqual(app.break_count, 2)
+        self.assertEqual(sum(kind == "break" for kind, _ in app.phase_plan), 2)
+        self.assertEqual(sum(seconds for _, seconds in app.phase_plan), 3600)
+        app._set_break_count(99)
+        self.assertEqual(app.break_count, 2)
+        app._set_theme("Forest")
+        self.assertEqual(app.break_count, 2)
+        app._start()
+        app._set_break_count(3)
+        self.assertEqual(app.break_count, 2)
+        app._open_settings()
+        self.assertEqual(app.cv.itemcget(app._count_btn, "fill"), app.colors["dim"])
+        self.start_session()
+        app._set_break_count(1)
+        self.assertEqual(app.break_count, 2)
+        app._reset()
+        app._set_break_count(3)
+        self.assertEqual(app.break_count, 3)
+
+    def test_all_session_plans_finish_in_focus_with_exact_total_and_chimes(self):
+        app = self.app
+        for hours in (1, 2, 3):
+            for break_mins in (5, 10, 15):
+                for break_count in study_clock.BREAK_COUNT_OPTIONS:
+                    with self.subTest(hours=hours, break_mins=break_mins, break_count=break_count):
+                        app._reset()
+                        app.study_hours, app.break_mins, app.break_count = hours, break_mins, break_count
+                        app._init_session()
+                        plan = list(app.phase_plan)
+                        self.assertEqual(sum(seconds for _, seconds in plan), hours * 3600)
+                        self.assertEqual(plan[0][0], "focus")
+                        self.assertEqual(plan[-1][0], "focus")
+                        self.assertEqual(sum(kind == "break" for kind, _ in plan), break_count)
+                        focuses = [seconds for kind, seconds in plan if kind == "focus"]
+                        self.assertLessEqual(max(focuses) - min(focuses), 1)
+                        self.assertTrue(all(seconds > 0 for _, seconds in plan))
+                        for index, (kind, seconds) in enumerate(plan):
+                            self.assertEqual(kind, "focus" if index % 2 == 0 else "break")
+                            if kind == "break":
+                                self.assertEqual(seconds, break_mins * 60)
+                        self.play_chime.reset_mock()
+                        app.state = "running"
+                        with patch.object(app, "after", return_value=None), \
+                                patch.object(app, "_render"), patch.object(app, "_begin_flash"):
+                            for index, (kind, seconds) in enumerate(plan):
+                                self.assertEqual(app.current_phase, kind)
+                                self.assertEqual(app.phase_total, seconds)
+                                skipped = seconds - 11
+                                app.time_left -= skipped
+                                app.total_left -= skipped
+                                for _ in range(11):
+                                    app._tick()
+                                if index < len(plan) - 1:
+                                    self.assertEqual(app.state, "running")
+                                else:
+                                    self.assertEqual(app.state, "completed")
+                                    self.assertEqual(app.current_phase, "focus")
+                                    self.assertEqual(app.total_left, 0)
+                                    self.assertEqual(app.time_left, 0)
+                        calls = self.play_chime.call_args_list
+                        self.assertEqual(sum(not call.args for call in calls), len(plan))
+                        self.assertEqual(sum(call.args == ("start",) for call in calls),
+                                         sum(kind == "focus" for kind, _ in plan) - 1)
 
     def test_minimize_and_revive(self):
         app = self.app

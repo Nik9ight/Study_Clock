@@ -11,7 +11,7 @@ Windows DPI awareness is enabled before the window opens to avoid blurry bitmap 
 - Choose **Timer** or **Clock**. Switching views keeps the timer running.
 - Open **Customize** for themes, progress-bar styles, and the **24 hour / 12 hour** clock format. Appearance choices are saved locally and can change during a session.
 - Choose **Package installer**, **ASCII terminal**, or **Retro segments** in the panel's **Progress bar** menu. The style also applies in compact mode.
-- The **Session** section in Customize offers 1–3 study hours and a 5, 10, or 15-minute break each hour. Reset before editing an active plan.
+- The **Session** section in Customize offers a 1–3-hour plan (including breaks), a break length of 5, 10, or 15 minutes, and **1, 2, or 3 breaks**. Reset before editing an active plan.
 - Use **Done** or **Escape** to return from Customize to the timer.
 - **Start / Pause / Resume** controls the timer; **Reset** restarts the session.
 - **Start** shows a 10-second **Get ready** countdown, then begins the session with the start chime. Preparation does not use study time. **Cancel**, **Reset**, or **Hide** cancels preparation. Resume starts immediately without a new countdown.
@@ -19,6 +19,8 @@ Windows DPI awareness is enabled before the window opens to avoid blurry bitmap 
 - Press **Space** on the main view to start or pause, or **Escape** to quit.
 
 On Windows, the short two-note start sound plays when you start a new session and when a break transitions back to focus. Resume stays silent. The original end recording begins ten seconds before each phase ends. Pause, reset, and quit stop playback. Keep `start-chime.wav` and the MP3 beside the script.
+
+Focus time is divided evenly around the selected number of breaks, always starting and finishing in focus. For example, a two-hour plan with one ten-minute break runs **55 minutes focus → 10 minutes break → 55 minutes focus**. With two ten-minute breaks, the same plan has three focus blocks of about 33 minutes 20 seconds. The 10-second preparation countdown is separate from the plan.
 
 ## Browser
 

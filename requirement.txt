@@ -1,0 +1,5 @@
+# No third-party Python packages are required.
+# The desktop app uses Python 3 standard-library modules only.
+# Tkinter with Tcl/Tk must be available in your Python installation;
+# it is not installed through pip. Verify with: python -m tkinter
+# Run the app with: python study_clock.py

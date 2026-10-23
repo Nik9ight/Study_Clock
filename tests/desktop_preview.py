@@ -83,8 +83,8 @@ if __name__ == "__main__":
             app.geometry(f"{study_clock.W}x{study_clock.H_BASE}+40+40")
             try:
                 app.state = "paused"
-                app.time_left = 1914
-                app.total_left = 2214
+                app.time_left = round(app.phase_total * 0.58)
+                app.total_left = app.study_hours * 3600 - (app.phase_total - app.time_left)
                 for theme in study_clock.THEMES:
                     app._set_theme(theme)
                     app.update()
